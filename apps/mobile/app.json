@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "Taom AI",
+    "slug": "taom-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.eda.taomai",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F172A"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#10B981"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Taom AI taomlarni skanerlash uchun kamerangizdan foydalanadi."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Taom AI taom rasmlarini yuklash uchun galereyangizdan foydalanadi."
+        }
+      ],
+      "expo-font",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "scheme": "taom-ai",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "61969795-6745-4b9a-aa66-d3badfe2cec5"
+      }
+    },
+    "owner": "otaxonov"
+  }
+}

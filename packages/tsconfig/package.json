@@ -1,0 +1,12 @@
+{
+  "name": "@eda/tsconfig",
+  "version": "1.0.0",
+  "private": true,
+  "files": ["base.json", "nestjs.json", "react-native.json"],
+  "exports": {
+    "./base.json": "./base.json",
+    "./nestjs.json": "./nestjs.json",
+    "./react-native.json": "./react-native.json",
+    "./*": "./*"
+  }
+}

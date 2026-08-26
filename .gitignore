@@ -1,0 +1,12 @@
+node_modules
+.turbo
+dist
+.expo
+.expo-shared
+web-build
+*.log
+.env
+.env.local
+.DS_Store
+.prisma
+coverage

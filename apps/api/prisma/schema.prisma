@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  VERY_ACTIVE
+  EXTRA_ACTIVE
+}
+
+enum FitnessGoal {
+  LOSE_WEIGHT
+  MAINTAIN
+  GAIN_WEIGHT
+  BUILD_MUSCLE
+}
+
+enum FoodCategory {
+  UZBEK_NATIONAL
+  MEAT_POULTRY
+  SOUP
+  GRAIN_BREAD
+  SALAD
+  BEVERAGE
+  DESSERT
+  FRUIT_VEGETABLE
+  OTHER
+}
+
+enum ScanStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  password     String
+  name         String
+  avatarUrl    String?
+  refreshToken String?
+  profile      UserProfile?
+  foodScans    FoodScan[]
+  meals        Meal[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("users")
+}
+
+model UserProfile {
+  id               String        @id @default(uuid())
+  userId           String        @unique
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  age              Int
+  gender           Gender
+  heightCm         Float
+  weightKg         Float
+  activityLevel    ActivityLevel
+  goal             FitnessGoal
+  dailyCalorieGoal Float
+  proteinGoalGrams Float?
+  carbsGoalGrams   Float?
+  fatGoalGrams     Float?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("user_profiles")
+}
+
+model Food {
+  id                  String         @id @default(uuid())
+  name                String
+  nameUz              String
+  nameRu              String?
+  nameEn              String?
+  category            FoodCategory   @default(UZBEK_NATIONAL)
+  imageUrl            String?
+  defaultServingGrams Float          @default(300)
+  aliases             String[]       @default([])
+  nutrition           FoodNutrition?
+  scanItems           FoodScanItem[]
+  mealItems           MealItem[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([name])
+  @@index([nameUz])
+  @@map("foods")
+}
+
+model FoodNutrition {
+  id              String   @id @default(uuid())
+  foodId          String   @unique
+  food            Food     @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  caloriesPer100g Float
+  proteinPer100g  Float
+  carbsPer100g    Float
+  fatPer100g      Float
+  fiberPer100g    Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("food_nutrition")
+}
+
+model FoodScan {
+  id        String         @id @default(uuid())
+  userId    String?
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  imageUrl  String
+  status    ScanStatus     @default(COMPLETED)
+  rawAiText String?
+  items     FoodScanItem[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([userId])
+  @@map("food_scans")
+}
+
+model FoodScanItem {
+  id             String   @id @default(uuid())
+  scanId         String
+  scan           FoodScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  foodId         String
+  food           Food     @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  weightGrams    Float
+  confidence     Float    @default(0.9)
+  calories       Float
+  protein        Float
+  carbs          Float
+  fat            Float
+  fiber          Float    @default(0)
+  isUserModified Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([scanId])
+  @@index([foodId])
+  @@map("food_scan_items")
+}
+
+model Meal {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      MealType
+  eatenAt   DateTime   @default(now())
+  items     MealItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([userId, eatenAt])
+  @@map("meals")
+}
+
+model MealItem {
+  id          String   @id @default(uuid())
+  mealId      String
+  meal        Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  foodId      String
+  food        Food     @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  weightGrams Float
+  calories    Float
+  protein     Float
+  carbs       Float
+  fat         Float
+  fiber       Float    @default(0)
+  scanId      String?
+  createdAt   DateTime @default(now())
+
+  @@index([mealId])
+  @@index([foodId])
+  @@map("meal_items")
+}
