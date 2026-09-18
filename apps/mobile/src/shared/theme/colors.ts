@@ -1,5 +1,6 @@
 export interface ThemePalette {
   background: string;
+  surface: string;
   card: string;
   cardHover: string;
   border: string;
@@ -13,6 +14,7 @@ export interface ThemePalette {
   primaryLight: string;
   primaryDark: string;
   primaryBg: string;
+  onPrimary: string;
 
   secondary: string;
   secondaryBg: string;
@@ -33,71 +35,75 @@ export interface ThemePalette {
 }
 
 export const DarkTheme: ThemePalette = {
-  background: '#0B0F19',
-  card: '#151C2C',
-  cardHover: '#1E293B',
-  border: '#2A364F',
-  text: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
-  tabBar: 'rgba(15, 23, 42, 0.94)',
-  tabBarBorder: 'rgba(255, 255, 255, 0.08)',
+  background: '#0F1115',
+  surface: '#171A21',
+  card: '#171A21',
+  cardHover: '#1E222B',
+  border: '#2A2F3A',
+  text: '#F4F5F7',
+  textSecondary: '#9AA3B2',
+  textMuted: '#6B7380',
+  tabBar: '#171A21',
+  tabBarBorder: '#2A2F3A',
 
-  primary: '#10B981',
-  primaryLight: '#34D399',
-  primaryDark: '#059669',
-  primaryBg: 'rgba(16, 185, 129, 0.14)',
+  primary: '#1A9B6C',
+  primaryLight: '#22B57D',
+  primaryDark: '#14855B',
+  primaryBg: 'rgba(26, 155, 108, 0.14)',
+  onPrimary: '#FFFFFF',
 
-  secondary: '#F59E0B',
-  secondaryBg: 'rgba(245, 158, 11, 0.14)',
+  secondary: '#D97706',
+  secondaryBg: 'rgba(217, 119, 6, 0.14)',
 
-  danger: '#EF4444',
-  dangerBg: 'rgba(239, 68, 68, 0.14)',
+  danger: '#E5484D',
+  dangerBg: 'rgba(229, 72, 77, 0.14)',
 
   info: '#3B82F6',
   infoBg: 'rgba(59, 130, 246, 0.14)',
 
-  purple: '#8B5CF6',
-  purpleBg: 'rgba(139, 92, 246, 0.14)',
+  purple: '#7C3AED',
+  purpleBg: 'rgba(124, 58, 237, 0.14)',
 
   protein: '#3B82F6',
-  carbs: '#F59E0B',
-  fat: '#EF4444',
-  fiber: '#10B981',
+  carbs: '#D97706',
+  fat: '#E5484D',
+  fiber: '#1A9B6C',
 };
 
 export const LightTheme: ThemePalette = {
-  background: '#F8FAFC',
+  background: '#F7F7F5',
+  surface: '#FFFFFF',
   card: '#FFFFFF',
-  cardHover: '#F1F5F9',
-  border: '#E2E8F0',
-  text: '#0F172A',
-  textSecondary: '#475569',
-  textMuted: '#94A3B8',
-  tabBar: 'rgba(255, 255, 255, 0.94)',
-  tabBarBorder: 'rgba(0, 0, 0, 0.08)',
+  cardHover: '#F0F0EE',
+  border: '#E6E6E2',
+  text: '#14171C',
+  textSecondary: '#5C6570',
+  textMuted: '#8B939E',
+  tabBar: '#FFFFFF',
+  tabBarBorder: '#E6E6E2',
 
-  primary: '#10B981',
-  primaryLight: '#34D399',
-  primaryDark: '#059669',
-  primaryBg: 'rgba(16, 185, 129, 0.12)',
+  primary: '#1A9B6C',
+  primaryLight: '#22B57D',
+  primaryDark: '#14855B',
+  primaryBg: 'rgba(26, 155, 108, 0.10)',
+  onPrimary: '#FFFFFF',
 
   secondary: '#D97706',
-  secondaryBg: 'rgba(217, 119, 6, 0.12)',
+  secondaryBg: 'rgba(217, 119, 6, 0.10)',
 
   danger: '#DC2626',
-  dangerBg: 'rgba(220, 38, 38, 0.12)',
+  dangerBg: 'rgba(220, 38, 38, 0.10)',
 
   info: '#2563EB',
-  infoBg: 'rgba(37, 99, 235, 0.12)',
+  infoBg: 'rgba(37, 99, 235, 0.10)',
 
   purple: '#7C3AED',
-  purpleBg: 'rgba(124, 58, 237, 0.12)',
+  purpleBg: 'rgba(124, 58, 237, 0.10)',
 
   protein: '#2563EB',
   carbs: '#D97706',
   fat: '#DC2626',
-  fiber: '#10B981',
+  fiber: '#1A9B6C',
 };
 
-export const Colors = DarkTheme;
+export const Colors = LightTheme;

@@ -54,17 +54,21 @@ enum MealType {
 }
 
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique
+  id           String             @id @default(uuid())
+  email        String             @unique
   password     String
   name         String
   avatarUrl    String?
   refreshToken String?
+  isPremium    Boolean            @default(false)
   profile      UserProfile?
   foodScans    FoodScan[]
   meals        Meal[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  weightLogs   WeightLog[]
+  waterLogs    WaterLog[]
+  passwordOtps PasswordResetOtp[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   @@map("users")
 }
@@ -83,10 +87,48 @@ model UserProfile {
   proteinGoalGrams Float?
   carbsGoalGrams   Float?
   fatGoalGrams     Float?
+  waterGoalMl      Int           @default(2000)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
   @@map("user_profiles")
+}
+
+model WeightLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weightKg  Float
+  loggedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([userId, loggedAt])
+  @@map("weight_logs")
+}
+
+model WaterLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amountMl  Int
+  loggedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([userId, loggedAt])
+  @@map("water_logs")
+}
+
+model PasswordResetOtp {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_reset_otps")
 }
 
 model Food {
@@ -95,6 +137,7 @@ model Food {
   nameUz              String
   nameRu              String?
   nameEn              String?
+  barcode             String?
   category            FoodCategory   @default(UZBEK_NATIONAL)
   imageUrl            String?
   defaultServingGrams Float          @default(300)
@@ -107,6 +150,7 @@ model Food {
 
   @@index([name])
   @@index([nameUz])
+  @@index([barcode])
   @@map("foods")
 }
 

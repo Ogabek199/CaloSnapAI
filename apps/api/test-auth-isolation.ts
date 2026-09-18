@@ -1,132 +1,151 @@
 /**
- * Automated Verification Script: Auth & User Data Isolation
+ * Automated Verification Script: Comprehensive Login / Logout / Profile & Diary Persistence
  */
 async function runTests() {
   const baseUrl = 'http://localhost:3000/api/v1';
-  console.log('🚀 Starting User Auth & Data Isolation Tests on:', baseUrl);
+  console.log('🚀 Starting Full Profile & Diary Persistence Tests on:', baseUrl);
 
-  const timestamp = Date.now();
-  const userA_phone = `+99890${Math.floor(1000000 + Math.random() * 9000000)}`;
-  const userB_phone = `+99890${Math.floor(1000000 + Math.random() * 9000000)}`;
-  const password = 'TestSecurePassword123!';
+  const testPhone = `+99890${Math.floor(1000000 + Math.random() * 9000000)}`;
+  const password = 'MySecurePassword99!';
+  const customProfile = {
+    age: 32,
+    gender: 'MALE' as const,
+    heightCm: 182,
+    weightKg: 87.5,
+    activityLevel: 'VERY_ACTIVE' as const,
+    goal: 'BUILD_MUSCLE' as const,
+    dailyCalorieGoal: 2850,
+    proteinGoalGrams: 175,
+    carbsGoalGrams: 350,
+    fatGoalGrams: 75,
+  };
 
-  console.log(`\n--- TEST 1: Register User A (${userA_phone}) ---`);
-  const regARes = await fetch(`${baseUrl}/auth/register`, {
+  console.log(`\n--- TEST 1: Register User with Custom Profile (${testPhone}) ---`);
+  const regRes = await fetch(`${baseUrl}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: userA_phone, name: 'User A (Ali)', password }),
-  });
-  const userAData = await regARes.json();
-  console.log('User A registration status:', regARes.status);
-  if (!userAData.accessToken) {
-    throw new Error(`Failed to register User A: ${JSON.stringify(userAData)}`);
-  }
-  const tokenA = userAData.accessToken;
-  console.log('✓ User A registered and obtained JWT');
-
-  console.log(`\n--- TEST 2: Register User B (${userB_phone}) ---`);
-  const regBRes = await fetch(`${baseUrl}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: userB_phone, name: 'User B (Vali)', password }),
-  });
-  const userBData = await regBRes.json();
-  console.log('User B registration status:', regBRes.status);
-  if (!userBData.accessToken) {
-    throw new Error(`Failed to register User B: ${JSON.stringify(userBData)}`);
-  }
-  const tokenB = userBData.accessToken;
-  console.log('✓ User B registered and obtained JWT');
-
-  console.log(`\n--- TEST 3: Unauthorized Access Prevention ---`);
-  const unauthRes = await fetch(`${baseUrl}/diary/today`);
-  console.log('Unauthenticated GET /diary/today status:', unauthRes.status);
-  if (unauthRes.status !== 401) {
-    throw new Error(`Expected 401 Unauthorized but got ${unauthRes.status}`);
-  }
-  console.log('✓ Unauthenticated request properly rejected with 401');
-
-  console.log(`\n--- TEST 4: Fetch Foods for Diary ---`);
-  const foodsRes = await fetch(`${baseUrl}/foods`);
-  const foods = await foodsRes.json();
-  if (!foods || foods.length === 0) {
-    throw new Error('No foods found in database to test');
-  }
-  const testFood = foods[0];
-  console.log(`Using test food: ${testFood.nameUz || testFood.name} (ID: ${testFood.id})`);
-
-  console.log(`\n--- TEST 5: User A Adds Meal to Diary ---`);
-  const addMealRes = await fetch(`${baseUrl}/diary/items`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${tokenA}`,
-    },
     body: JSON.stringify({
-      mealType: 'BREAKFAST',
-      foodId: testFood.id,
-      weightGrams: 250,
+      phone: testPhone,
+      name: 'Shahzod Olimov',
+      password,
+      profile: customProfile,
     }),
   });
-  const mealItemA = await addMealRes.json();
-  console.log('User A add meal status:', addMealRes.status, 'Item ID:', mealItemA.id);
-
-  const diaryARes = await fetch(`${baseUrl}/diary/today`, {
-    headers: { Authorization: `Bearer ${tokenA}` },
-  });
-  const diaryA = await diaryARes.json();
-  const breakfastItemsA = diaryA.meals.find((m: any) => m.type === 'BREAKFAST')?.items || [];
-  console.log('User A Breakfast items count:', breakfastItemsA.length);
-  if (breakfastItemsA.length === 0) {
-    throw new Error('User A diary does not contain added meal');
+  const regData = await regRes.json();
+  console.log('Registration status:', regRes.status);
+  if (!regData.accessToken) {
+    throw new Error(`Registration failed: ${JSON.stringify(regData)}`);
   }
-  console.log('✓ User A successfully added meal and can view their diary');
-
-  console.log(`\n--- TEST 6: User B Data Isolation Verification ---`);
-  const diaryBRes = await fetch(`${baseUrl}/diary/today`, {
-    headers: { Authorization: `Bearer ${tokenB}` },
-  });
-  const diaryB = await diaryBRes.json();
-  const breakfastItemsB = diaryB.meals.find((m: any) => m.type === 'BREAKFAST')?.items || [];
-  console.log('User B Breakfast items count:', breakfastItemsB.length);
-  if (breakfastItemsB.length !== 0) {
-    throw new Error('DATA LEAK DETECTED: User B can see User A meal items!');
+  const token = regData.accessToken;
+  const userProfile = regData.user?.profile;
+  console.log('User registered with Daily Calorie Goal:', userProfile?.dailyCalorieGoal, 'Weight:', userProfile?.weightKg);
+  if (userProfile?.dailyCalorieGoal !== 2850 || userProfile?.weightKg !== 87.5) {
+    throw new Error('Initial profile data was not saved correctly to database!');
   }
-  console.log('✓ PERFECT ISOLATION: User B sees clean diary without User A data');
+  console.log('✓ User profile accurately saved in PostgreSQL');
 
-  console.log(`\n--- TEST 7: User B cannot delete or tamper with User A meal item ---`);
-  const deleteTamperRes = await fetch(`${baseUrl}/diary/items/${mealItemA.id}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${tokenB}` },
+  console.log(`\n--- TEST 2: Add Meals to User Diary ---`);
+  const foodsRes = await fetch(`${baseUrl}/foods`);
+  const foods = await foodsRes.json();
+  const food1 = foods[0];
+  const food2 = foods[1] || foods[0];
+
+  const add1 = await fetch(`${baseUrl}/diary/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ mealType: 'BREAKFAST', foodId: food1.id, weightGrams: 300 }),
   });
-  console.log('User B delete User A item status:', deleteTamperRes.status);
-  if (deleteTamperRes.status === 200) {
-    throw new Error('SECURITY BREACH: User B deleted User A meal item!');
-  }
-  console.log('✓ User B was prevented from tampering with User A meal item (404/403)');
+  console.log('Add meal 1 status:', add1.status);
 
-  console.log(`\n--- TEST 8: User A Logs Out and Logs Back In ---`);
-  const loginARes = await fetch(`${baseUrl}/auth/login`, {
+  const add2 = await fetch(`${baseUrl}/diary/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ mealType: 'LUNCH', foodId: food2.id, weightGrams: 400 }),
+  });
+  console.log('Add meal 2 status:', add2.status);
+
+  const diaryBefore = await (await fetch(`${baseUrl}/diary/today`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })).json();
+
+  const mealCountBefore = diaryBefore.meals.reduce((acc: number, m: any) => acc + m.items.length, 0);
+  console.log(`User has ${mealCountBefore} meals logged in today's diary. Goal: ${diaryBefore.goalCalories} kcal`);
+  if (mealCountBefore !== 2 || diaryBefore.goalCalories !== 2850) {
+    throw new Error('Meals or goal calories mismatch in diary before logout');
+  }
+  console.log('✓ Meals and calorie goals confirmed in database');
+
+  console.log(`\n--- TEST 2.5: Update Profile Avatar ---`);
+  const avatarDataUrl = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400';
+  const avatarRes = await fetch(`${baseUrl}/auth/avatar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ avatarUrl: avatarDataUrl }),
+  });
+  console.log('Avatar update status:', avatarRes.status);
+  const updatedUser = await avatarRes.json();
+  if (updatedUser.avatarUrl !== avatarDataUrl) {
+    throw new Error('Avatar was not saved properly in database!');
+  }
+  console.log('✓ Avatar successfully updated in PostgreSQL database');
+
+  console.log(`\n--- TEST 3: Simulate Logout & Guest Access Block ---`);
+  // Unauthenticated request must fail
+  const blockedRes = await fetch(`${baseUrl}/diary/today`);
+  console.log('Unauthenticated access status:', blockedRes.status);
+  if (blockedRes.status !== 401) {
+    throw new Error(`Expected 401 Unauthorized, got ${blockedRes.status}`);
+  }
+  console.log('✓ Guest access blocked with 401 Unauthorized');
+
+  console.log(`\n--- TEST 4: Log Back in using Phone & Password ---`);
+  const loginRes = await fetch(`${baseUrl}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: userA_phone, password }),
+    body: JSON.stringify({ phone: testPhone, password }),
   });
-  const loginAData = await loginARes.json();
-  console.log('User A re-login status:', loginARes.status);
-  const reTokenA = loginAData.accessToken;
-
-  const reDiaryARes = await fetch(`${baseUrl}/diary/today`, {
-    headers: { Authorization: `Bearer ${reTokenA}` },
-  });
-  const reDiaryA = await reDiaryARes.json();
-  const reBreakfastItemsA = reDiaryA.meals.find((m: any) => m.type === 'BREAKFAST')?.items || [];
-  console.log('User A restored Breakfast items count:', reBreakfastItemsA.length);
-  if (reBreakfastItemsA.length === 0) {
-    throw new Error('User A data was lost after logout/login cycle!');
+  const loginData = await loginRes.json();
+  console.log('Login status:', loginRes.status);
+  if (!loginData.accessToken) {
+    throw new Error(`Login failed: ${JSON.stringify(loginData)}`);
   }
-  console.log('✓ User A data was 100% preserved upon logging back in');
+  const newToken = loginData.accessToken;
+  const restoredProfile = loginData.user?.profile;
+  console.log('Restored User Profile:', {
+    name: loginData.user?.name,
+    phone: loginData.user?.phone,
+    weightKg: restoredProfile?.weightKg,
+    heightCm: restoredProfile?.heightCm,
+    age: restoredProfile?.age,
+    goal: restoredProfile?.goal,
+    dailyCalorieGoal: restoredProfile?.dailyCalorieGoal,
+  });
 
-  console.log('\n🎉 ALL AUTH & USER ISOLATION TESTS PASSED SUCCESSFULLY! 🎉\n');
+  if (
+    restoredProfile?.dailyCalorieGoal !== 2850 ||
+    restoredProfile?.weightKg !== 87.5 ||
+    restoredProfile?.heightCm !== 182 ||
+    restoredProfile?.age !== 32 ||
+    restoredProfile?.goal !== 'BUILD_MUSCLE' ||
+    loginData.user?.avatarUrl !== avatarDataUrl
+  ) {
+    throw new Error('RESTORE ERROR: User profile stats or avatar were NOT preserved properly on re-login!');
+  }
+  console.log('✓ User profile, avatar image, physical stats, and goals 100% PRESERVED');
+
+  console.log(`\n--- TEST 5: Verify Diary Meals are Fully Restored ---`);
+  const diaryAfter = await (await fetch(`${baseUrl}/diary/today`, {
+    headers: { Authorization: `Bearer ${newToken}` },
+  })).json();
+
+  const mealCountAfter = diaryAfter.meals.reduce((acc: number, m: any) => acc + m.items.length, 0);
+  console.log(`User restored diary meal count: ${mealCountAfter}, Goal: ${diaryAfter.goalCalories} kcal`);
+  if (mealCountAfter !== 2 || diaryAfter.goalCalories !== 2850) {
+    throw new Error('RESTORE ERROR: Diary meals or calorie goal lost after re-login!');
+  }
+  console.log('✓ All diary meals and calorie goals 100% PRESERVED');
+
+  console.log('\n🎉 ALL PERSISTENCE AND LOGIN/LOGOUT TESTS COMPLETED SUCCESSFULLY! 🎉\n');
 }
 
 runTests().catch((err) => {

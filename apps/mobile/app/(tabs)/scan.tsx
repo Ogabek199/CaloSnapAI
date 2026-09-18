@@ -16,6 +16,7 @@ import { useAppStore } from '../../src/store/useAppStore';
 import { useScanStore } from '../../src/store/useScanStore';
 import { useToastStore } from '../../src/store/useToastStore';
 import { ApiClient } from '../../src/shared/api/api-client';
+import { stripBottomWatermark } from '../../src/shared/media/strip-bottom-watermark';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,7 +25,7 @@ export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
-  const { setImageUri, setScanResult, setAnalyzing } = useScanStore();
+  const { setImageUri, setScanResult, setAnalyzing, resetAnalysisCancel } = useScanStore();
   const { showToast } = useToastStore();
   const { t, theme } = useAppStore();
   const currentTheme = theme();
@@ -35,37 +36,50 @@ export default function ScanScreen() {
 
   const startAnalysis = async (uri: string) => {
     setIsProcessing(true);
-    setImageUri(uri);
+    resetAnalysisCancel();
+    // Remove camera date/time stamp often burned into the bottom of photos
+    const cleanUri = await stripBottomWatermark(uri);
+    setImageUri(cleanUri);
     setAnalyzing(true);
     router.push('/scan/analyzing');
 
     try {
-      const result = await ApiClient.scanFood(uri);
+      const result = await ApiClient.scanFood(cleanUri);
+      const cancelled = useScanStore.getState().analysisCancelled;
+      if (cancelled) {
+        setAnalyzing(false);
+        setIsProcessing(false);
+        return;
+      }
       setScanResult(result);
       setAnalyzing(false);
       setIsProcessing(false);
       router.replace('/scan/result');
     } catch (err: any) {
+      const cancelled = useScanStore.getState().analysisCancelled;
       setAnalyzing(false);
       setIsProcessing(false);
+      if (cancelled) return;
+
       router.back();
 
       const errMsg = err?.message || '';
+      const goManual = () => router.push('/diary/add');
+
       if (errMsg.includes('xira') || errMsg.includes('aniqlanmadi') || errMsg.includes('topilmadi')) {
-        showToast(
-          'Rasm xira yoki taom aniqlanmadi. Iltimos, kamerani yaqinroq tutib, yorug‘ joyda qayta oling 📸',
-          'warning',
-        );
+        showToast(strings.scanFailedHint || 'Skaner ishlamadi — taomni qo‘lda qo‘shing', 'warning');
+        setTimeout(goManual, 600);
       } else if (errMsg.includes('Internet') || errMsg.includes('tarmoq') || errMsg.includes('Network') || errMsg.includes('Failed to fetch')) {
         showToast(
           'Internet aloqasida uzilish. Iltimos, tarmoqni tekshirib qaytadan urinib ko‘ring.',
           'error',
         );
+      } else if (errMsg.includes('limit')) {
+        showToast(errMsg, 'warning');
+        setTimeout(goManual, 500);
       } else {
-        showToast(
-          errMsg || 'Rasmda taom aniqlanmadi. Iltimos, haqiqiy taom rasmini oling.',
-          'warning',
-        );
+        showToast(errMsg || strings.scanFailedHint || 'Skaner ishlamadi', 'warning');
+        setTimeout(goManual, 600);
       }
     }
   };
@@ -157,7 +171,7 @@ export default function ScanScreen() {
 
           <View style={styles.aiBadge}>
             <Sparkles color={currentTheme.primary} size={14} />
-            <Text style={styles.aiBadgeText}>AI Vision Camera</Text>
+            <Text style={styles.aiBadgeText}>AI Camera</Text>
           </View>
 
           <TouchableOpacity

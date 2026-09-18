@@ -1,6 +1,14 @@
-import { Controller, Get, Post, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiResponse,
+  ApiParam,
+  ApiBody,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { DiaryService } from './diary.service';
 import { AddMealItemDto } from './dto/add-meal-item.dto';
 import { UpdateMealItemDto } from './dto/update-meal-item.dto';
@@ -12,6 +20,27 @@ import { DailyDiarySummaryDto, DiaryMealItemDto } from './dto/diary-response.dto
 @Controller('diary')
 export class DiaryController {
   constructor(private readonly diaryService: DiaryService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Belgilangan kun uchun ovqatlanish kundaligi',
+    description: 'YYYY-MM-DD sana bo‘yicha kundalik. Kelajak sanalar qabul qilinmaydi.',
+  })
+  @ApiQuery({
+    name: 'date',
+    required: true,
+    example: '2026-09-18',
+    description: 'Local calendar date YYYY-MM-DD',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Kunlik ovqatlar, kaloriyalar va makrolar',
+    type: DailyDiarySummaryDto,
+  })
+  @ApiResponse({ status: 400, description: 'Noto‘g‘ri yoki kelajak sana' })
+  async getByDate(@Request() req: any, @Query('date') date: string) {
+    return this.diaryService.getSummaryForDate(req.user.id, date || '');
+  }
 
   @Get('today')
   @ApiOperation({
@@ -25,6 +54,18 @@ export class DiaryController {
   })
   async getToday(@Request() req: any) {
     return this.diaryService.getTodaySummary(req.user.id);
+  }
+
+  @Get('summary')
+  @ApiOperation({ summary: 'Kunlar oralig‘idagi kaloriya agregati va streak' })
+  @ApiQuery({ name: 'from', required: true, example: '2026-09-12' })
+  @ApiQuery({ name: 'to', required: true, example: '2026-09-18' })
+  async getSummary(
+    @Request() req: any,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.diaryService.getRangeSummary(req.user.id, from, to);
   }
 
   @Post('items')

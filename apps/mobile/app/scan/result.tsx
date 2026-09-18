@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -36,6 +37,7 @@ export default function ResultScreen() {
 
   const [selectedMealType, setSelectedMealType] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK'>('LUNCH');
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const items = scanResult?.items || [];
   const currentItem = items[selectedItemIndex] || items[0];
@@ -63,12 +65,20 @@ export default function ResultScreen() {
   };
 
   const handleSaveToDiary = async () => {
-    setIsSaved(true);
-    showToast(strings.addedSuccess, 'success');
-    await addScanToDiary(selectedMealType, items, scanResult?.id);
-    setTimeout(() => {
-      router.replace('/(tabs)/diary');
-    }, 400);
+    if (isSaving || isSaved) return;
+    setIsSaving(true);
+    try {
+      await addScanToDiary(selectedMealType, items, scanResult?.id);
+      setIsSaved(true);
+      showToast(strings.addedSuccess, 'success');
+      setTimeout(() => {
+        router.replace('/(tabs)/diary');
+      }, 400);
+    } catch {
+      showToast('Saqlashda xatolik', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -273,8 +283,14 @@ export default function ResultScreen() {
           style={[styles.saveButton, { backgroundColor: currentTheme.primary }, isSaved && { backgroundColor: currentTheme.primaryDark }]}
           activeOpacity={0.88}
           onPress={handleSaveToDiary}
+          disabled={isSaving || isSaved}
         >
-          {isSaved ? (
+          {isSaving ? (
+            <>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text style={styles.saveButtonText}>Saqlanmoqda...</Text>
+            </>
+          ) : isSaved ? (
             <>
               <Check color="#FFFFFF" size={20} />
               <Text style={styles.saveButtonText}>{strings.addedSuccess}</Text>

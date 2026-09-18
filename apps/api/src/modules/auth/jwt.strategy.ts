@@ -28,6 +28,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     const { password, ...result } = user;
-    return result;
+    const phone = result.email.endsWith('@phone.eda.ai')
+      ? `+${result.email.replace('@phone.eda.ai', '')}`
+      : undefined;
+    return { ...result, ...(phone ? { phone } : {}) };
   }
 }

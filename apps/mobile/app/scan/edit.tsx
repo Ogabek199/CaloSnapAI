@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { useAppStore } from '../../src/store/useAppStore';
 import { useScanStore } from '../../src/store/useScanStore';
 import { ApiClient } from '../../src/shared/api/api-client';
 import { Food } from '@eda/types';
+import { FadeIn, FoodListSkeleton } from '../../src/shared/ui/Skeleton';
 
 export default function EditFoodScreen() {
   const router = useRouter();
@@ -26,28 +27,35 @@ export default function EditFoodScreen() {
 
   const [query, setQuery] = useState('');
   const [foods, setFoods] = useState<Food[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    loadFoods('');
-  }, []);
+  const [loading, setLoading] = useState(true);
+  const searchSeq = useRef(0);
 
   const loadFoods = async (searchQuery: string) => {
+    const seq = ++searchSeq.current;
     setLoading(true);
     try {
       const results = await ApiClient.searchFoods(searchQuery);
+      if (seq !== searchSeq.current) return;
       setFoods(results);
     } catch (e) {
+      if (seq !== searchSeq.current) return;
       console.log('Food search error:', e);
     } finally {
-      setLoading(false);
+      if (seq === searchSeq.current) setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => loadFoods(query), query ? 280 : 0);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const handleSelectFood = (food: Food) => {
     swapItemFood(selectedItemIndex, food);
     router.back();
   };
+
+  const showSkeleton = loading && foods.length === 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: currentTheme.background, paddingTop: insets.top }]}>
@@ -70,44 +78,61 @@ export default function EditFoodScreen() {
           placeholder="Qidiruv (masalan: Manti, Somsa, Osh)..."
           placeholderTextColor={currentTheme.textMuted}
           value={query}
-          onChangeText={(text) => {
-            setQuery(text);
-            loadFoods(text);
-          }}
+          onChangeText={setQuery}
           autoFocus
         />
         {query ? (
-          <TouchableOpacity onPress={() => { setQuery(''); loadFoods(''); }}>
+          <TouchableOpacity onPress={() => setQuery('')}>
             <X color={currentTheme.textMuted} size={16} />
           </TouchableOpacity>
         ) : null}
       </View>
 
-      {/* Food List */}
-      <FlatList
-        data={foods}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 40 }]}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.foodItemCard, { backgroundColor: currentTheme.card, borderColor: currentTheme.border }]}
-            onPress={() => handleSelectFood(item)}
-          >
-            <View style={[styles.foodIconBox, { backgroundColor: currentTheme.primaryBg }]}>
-              <Utensils color={currentTheme.primary} size={18} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.foodItemTitle, { color: currentTheme.text }]}>
-                {item.nameUz || item.name}
-              </Text>
-              <Text style={[styles.foodItemSub, { color: currentTheme.textMuted }]}>
-                100g: {item.nutrition.calories} kcal • {strings.protein}: {item.nutrition.protein}g • {strings.carbs}: {item.nutrition.carbs}g • {strings.fat}: {item.nutrition.fat}g
-              </Text>
-            </View>
-            <Check color={currentTheme.textMuted} size={18} />
-          </TouchableOpacity>
-        )}
-      />
+      {showSkeleton ? (
+        <FoodListSkeleton rows={8} />
+      ) : (
+        <FadeIn style={{ flex: 1 }}>
+          <FlatList
+            data={foods}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 40 }]}
+            ListEmptyComponent={
+              !loading ? (
+                <Text style={{ color: currentTheme.textMuted, textAlign: 'center', marginTop: 24 }}>
+                  Natija topilmadi
+                </Text>
+              ) : null
+            }
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.foodItemCard,
+                  {
+                    backgroundColor: currentTheme.card,
+                    borderColor: currentTheme.border,
+                    opacity: loading ? 0.55 : 1,
+                  },
+                ]}
+                onPress={() => handleSelectFood(item)}
+                disabled={loading}
+              >
+                <View style={[styles.foodIconBox, { backgroundColor: currentTheme.primaryBg }]}>
+                  <Utensils color={currentTheme.primary} size={18} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.foodItemTitle, { color: currentTheme.text }]}>
+                    {item.nameUz || item.name}
+                  </Text>
+                  <Text style={[styles.foodItemSub, { color: currentTheme.textMuted }]}>
+                    100g: {item.nutrition.calories} kcal • {strings.protein}: {item.nutrition.protein}g • {strings.carbs}: {item.nutrition.carbs}g • {strings.fat}: {item.nutrition.fat}g
+                  </Text>
+                </View>
+                <Check color={currentTheme.textMuted} size={18} />
+              </TouchableOpacity>
+            )}
+          />
+        </FadeIn>
+      )}
     </SafeAreaView>
   );
 }

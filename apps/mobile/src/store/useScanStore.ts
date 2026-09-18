@@ -6,11 +6,14 @@ interface ScanState {
   scanResult: FoodScanResult | null;
   selectedItemIndex: number;
   isAnalyzing: boolean;
+  analysisCancelled: boolean;
 
   setImageUri: (uri: string | null) => void;
   setScanResult: (result: FoodScanResult | null) => void;
   setAnalyzing: (status: boolean) => void;
   setSelectedItemIndex: (index: number) => void;
+  cancelAnalysis: () => void;
+  resetAnalysisCancel: () => void;
 
   updateItemWeight: (itemIndex: number, newWeight: number) => void;
   swapItemFood: (itemIndex: number, newFood: Food) => void;
@@ -21,11 +24,20 @@ export const useScanStore = create<ScanState>((set) => ({
   scanResult: null,
   selectedItemIndex: 0,
   isAnalyzing: false,
+  analysisCancelled: false,
 
   setImageUri: (uri) => set({ imageUri: uri }),
   setScanResult: (result) => set({ scanResult: result }),
   setAnalyzing: (status) => set({ isAnalyzing: status }),
   setSelectedItemIndex: (index) => set({ selectedItemIndex: index }),
+  cancelAnalysis: () =>
+    set({
+      analysisCancelled: true,
+      isAnalyzing: false,
+      scanResult: null,
+      imageUri: null,
+    }),
+  resetAnalysisCancel: () => set({ analysisCancelled: false }),
 
   updateItemWeight: (itemIndex, newWeight) =>
     set((state) => {

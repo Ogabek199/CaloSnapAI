@@ -34,5 +34,21 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty({ message: 'Ism kiritilishi shart' })
   name: string;
-}
 
+  @ApiPropertyOptional({
+    description: 'Foydalanuvchining boshlang‘ich jismoniy ko‘rsatkichlari',
+  })
+  @IsOptional()
+  profile?: {
+    age?: number;
+    gender?: 'MALE' | 'FEMALE';
+    heightCm?: number;
+    weightKg?: number;
+    activityLevel?: 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'VERY_ACTIVE' | 'EXTRA_ACTIVE';
+    goal?: 'LOSE_WEIGHT' | 'MAINTAIN' | 'GAIN_WEIGHT' | 'BUILD_MUSCLE';
+    dailyCalorieGoal?: number;
+    proteinGoalGrams?: number;
+    carbsGoalGrams?: number;
+    fatGoalGrams?: number;
+  };
+}

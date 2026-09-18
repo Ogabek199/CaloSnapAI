@@ -15,7 +15,7 @@ export interface UserState {
   heightCm: number;
   gender: 'MALE' | 'FEMALE';
   fitnessGoal: 'LOSE_WEIGHT' | 'MAINTAIN' | 'BUILD_MUSCLE';
-  activityLevel?: 'SEDENTARY' | 'MODERATE' | 'VERY_ACTIVE';
+  activityLevel?: 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'VERY_ACTIVE' | 'EXTRA_ACTIVE';
 }
 
 const defaultUser: UserState = {
@@ -37,6 +37,8 @@ interface AppState {
   isLoggedIn: boolean;
   isOnboardingCompleted: boolean;
   mealRemindersEnabled: boolean;
+  /** Optional app unlock via Face ID / biometrics (device-local). */
+  biometricLockEnabled: boolean;
   user: UserState;
   token: string | null;
 
@@ -44,9 +46,17 @@ interface AppState {
   setThemeMode: (theme: 'dark' | 'light') => void;
   setOnboardingCompleted: (completed: boolean) => void;
   setMealRemindersEnabled: (enabled: boolean) => void;
+  setBiometricLockEnabled: (enabled: boolean) => void;
   setAvatarUrl: (url: string) => void;
   updateUserStats: (stats: Partial<UserState>) => void;
-  login: (identifier: string, name: string, token?: string, phone?: string, profile?: any) => void;
+  login: (
+    identifier: string,
+    name: string,
+    token?: string,
+    phone?: string,
+    profile?: any,
+    avatarUrl?: string,
+  ) => void;
   logout: () => void;
   t: () => typeof translations['uz'];
   theme: () => ThemePalette;
@@ -56,10 +66,11 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       language: 'uz',
-      themeMode: 'dark',
+      themeMode: 'light',
       isLoggedIn: false,
       isOnboardingCompleted: false,
       mealRemindersEnabled: true,
+      biometricLockEnabled: false,
       user: defaultUser,
       token: null,
 
@@ -67,6 +78,7 @@ export const useAppStore = create<AppState>()(
       setThemeMode: (theme) => set({ themeMode: theme }),
       setOnboardingCompleted: (completed) => set({ isOnboardingCompleted: completed }),
       setMealRemindersEnabled: (enabled) => set({ mealRemindersEnabled: enabled }),
+      setBiometricLockEnabled: (enabled) => set({ biometricLockEnabled: enabled }),
       setAvatarUrl: (url) =>
         set((state) => ({
           user: { ...state.user, avatarUrl: url },
@@ -77,7 +89,7 @@ export const useAppStore = create<AppState>()(
           user: { ...state.user, ...stats },
         })),
 
-      login: (identifier, name, token, phone, profile) => {
+      login: (identifier, name, token, phone, profile, avatarUrl) => {
         set((state) => ({
           isLoggedIn: true,
           token: token || state.token,
@@ -87,6 +99,7 @@ export const useAppStore = create<AppState>()(
             email: identifier.includes('@') ? identifier : `${identifier.replace(/\D/g, '')}@phone.eda.ai`,
             phone: phone || (identifier.includes('@') ? '' : identifier),
             name: name || state.user.name || 'Foydalanuvchi',
+            avatarUrl: avatarUrl ?? profile?.avatarUrl ?? profile?.user?.avatarUrl ?? state.user.avatarUrl ?? '',
             age: profile?.age ?? state.user.age ?? 25,
             weightKg: profile?.weightKg ?? state.user.weightKg ?? 80,
             heightCm: profile?.heightCm ?? state.user.heightCm ?? 180,
@@ -101,6 +114,7 @@ export const useAppStore = create<AppState>()(
         set({
           isLoggedIn: false,
           token: null,
+          isOnboardingCompleted: false,
           user: {
             ...defaultUser,
             name: 'Mehmon',
@@ -132,9 +146,20 @@ export const useAppStore = create<AppState>()(
         isLoggedIn: state.isLoggedIn,
         isOnboardingCompleted: state.isOnboardingCompleted,
         mealRemindersEnabled: state.mealRemindersEnabled,
+        biometricLockEnabled: state.biometricLockEnabled,
         user: state.user,
         token: state.token,
       }),
     },
   ),
 );
+
+/** Re-renders when themeMode changes (unlike calling store.theme(), which is a stable fn). */
+export function usePalette(): ThemePalette {
+  return useAppStore((s) => (s.themeMode === 'light' ? LightTheme : DarkTheme));
+}
+
+/** Re-renders when language changes (unlike calling store.t(), which is a stable fn). */
+export function useStrings() {
+  return useAppStore((s) => translations[s.language] || translations.uz);
+}

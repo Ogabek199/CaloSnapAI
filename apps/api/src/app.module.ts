@@ -8,6 +8,7 @@ import { NutritionModule } from './modules/nutrition/nutrition.module';
 import { FoodScanModule } from './modules/food-scan/food-scan.module';
 import { DiaryModule } from './modules/diary/diary.module';
 import { GoalsModule } from './modules/goals/goals.module';
+import { TrackingModule } from './modules/tracking/tracking.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { GoalsModule } from './modules/goals/goals.module';
     FoodScanModule,
     DiaryModule,
     GoalsModule,
+    TrackingModule,
   ],
 })
 export class AppModule {}

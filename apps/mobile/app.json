@@ -5,20 +5,23 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
+      "backgroundColor": "#F7F7F5"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Taom AI ilovasiga xavfsiz kirish uchun Face ID ishlatiladi."
+      }
     },
     "android": {
       "package": "com.eda.taomai",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0F172A"
+        "backgroundColor": "#F7F7F5"
       },
       "permissions": [
         "android.permission.CAMERA",
@@ -36,7 +39,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#10B981"
+          "color": "#1A9B6C"
         }
       ],
       [
@@ -52,7 +55,13 @@
         }
       ],
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Taom AI ilovasiga xavfsiz kirish uchun Face ID ishlatiladi."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

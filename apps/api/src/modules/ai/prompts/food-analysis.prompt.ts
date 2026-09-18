@@ -68,7 +68,7 @@ STRICT JSON OUTPUT ONLY (No markdown code fences, pure JSON):
       "nameUz": "string (in Uzbek latin, e.g. Tandir non)",
       "nameRu": "string (in Russian, e.g. Тандырная лепешка)",
       "nameEn": "string (in English, e.g. Tandoor Flatbread)",
-      "category": "SOUP | MAIN_DISH | SALAD | DESSERT | BEVERAGE | BAKERY | SNACK",
+      "category": "UZBEK_NATIONAL | MEAT_POULTRY | SOUP | GRAIN_BREAD | SALAD | BEVERAGE | DESSERT | FRUIT_VEGETABLE | OTHER",
       "estimatedWeightGrams": number,
       "caloriesPer100g": number,
       "proteinPer100g": number,

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Request, HttpCode, HttpStatus, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
@@ -60,5 +60,38 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Autentifikatsiyadan o‘tilmagan (Token yaroqsiz yoki mavjud emas)' })
   async getMe(@Request() req: any) {
     return req.user;
+  }
+
+  @Post('avatar')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Foydalanuvchi profil rasmini yangilash',
+    description: 'Foydalanuvchi avatar rasmini saqlaydi',
+  })
+  async updateAvatar(@Request() req: any, @Body() body: { avatarUrl: string }) {
+    return this.authService.updateAvatar(req.user.id, body.avatarUrl);
+  }
+
+  @Post('password/request-reset')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Parolni tiklash OTP so‘rash (telefon/email)' })
+  async requestReset(@Body() body: { phone?: string; email?: string }) {
+    const id = body.phone || body.email;
+    if (!id) throw new BadRequestException('Telefon yoki email kerak');
+    return this.authService.requestPasswordReset(id);
+  }
+
+  @Post('password/confirm-reset')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'OTP + yangi parol bilan parolni yangilash' })
+  async confirmReset(
+    @Body() body: { phone?: string; email?: string; code: string; newPassword: string },
+  ) {
+    const id = body.phone || body.email;
+    if (!id || !body.code || !body.newPassword) {
+      throw new BadRequestException('Ma’lumotlar to‘liq emas');
+    }
+    return this.authService.confirmPasswordReset(id, body.code, body.newPassword);
   }
 }

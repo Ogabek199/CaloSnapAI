@@ -1,6 +1,49 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { FoodCategory } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { DetectedFoodItem } from '../ai/ai.types';
+
+const VALID_CATEGORIES = new Set<string>(Object.values(FoodCategory));
+
+const CATEGORY_ALIASES: Record<string, FoodCategory> = {
+  MAIN_DISH: FoodCategory.UZBEK_NATIONAL,
+  BAKERY: FoodCategory.GRAIN_BREAD,
+  SNACK: FoodCategory.OTHER,
+  FAST_FOOD: FoodCategory.OTHER,
+  HEALTHY: FoodCategory.OTHER,
+  DRINK: FoodCategory.BEVERAGE,
+  BREAD: FoodCategory.GRAIN_BREAD,
+  MEAT: FoodCategory.MEAT_POULTRY,
+  FRUIT: FoodCategory.FRUIT_VEGETABLE,
+  VEGETABLE: FoodCategory.FRUIT_VEGETABLE,
+};
+
+function normalizeCategory(raw?: string | null): FoodCategory {
+  if (!raw) return FoodCategory.OTHER;
+  const upper = String(raw).trim().toUpperCase();
+  if (VALID_CATEGORIES.has(upper)) return upper as FoodCategory;
+  return CATEGORY_ALIASES[upper] || FoodCategory.OTHER;
+}
+
+/** Map Prisma nutrition row → mobile/shared @eda/types NutritionPer100g shape (HTTP only) */
+export function mapNutritionForClient(nutrition: any) {
+  if (!nutrition) return null;
+  return {
+    calories: nutrition.caloriesPer100g,
+    protein: nutrition.proteinPer100g,
+    carbs: nutrition.carbsPer100g,
+    fat: nutrition.fatPer100g,
+    fiber: nutrition.fiberPer100g ?? 0,
+  };
+}
+
+export function mapFoodForClient(food: any) {
+  if (!food) return null;
+  return {
+    ...food,
+    nutrition: mapNutritionForClient(food.nutrition),
+  };
+}
 
 @Injectable()
 export class FoodService {
@@ -43,6 +86,15 @@ export class FoodService {
       include: {
         nutrition: true,
       },
+    });
+  }
+
+  async findByBarcode(barcode: string) {
+    const code = (barcode || '').trim();
+    if (!code) return null;
+    return this.prisma.food.findFirst({
+      where: { barcode: code },
+      include: { nutrition: true },
     });
   }
 
@@ -108,6 +160,7 @@ export class FoodService {
     const fatPer100g = typeof item.fatPer100g === 'number' ? item.fatPer100g : 0;
     const fibPer100g = typeof item.fiberPer100g === 'number' ? item.fiberPer100g : 0;
 
+    const categoryToWrite = normalizeCategory(item.category as string | undefined);
     try {
       this.logger.log(`Creating new recognized food in DB: "${nameUz}" (${calPer100g} kcal/100g)`);
       const newFood = await this.prisma.food.create({
@@ -116,9 +169,14 @@ export class FoodService {
           nameUz: nameUz,
           nameRu: nameRu,
           nameEn: nameEn,
-          category: (item.category as any) || 'MAIN_DISH',
+          category: categoryToWrite,
           defaultServingGrams: defaultServing,
-          aliases: [item.name.toLowerCase(), nameUz.toLowerCase(), nameRu.toLowerCase(), nameEn.toLowerCase()],
+          aliases: [
+            item.name.toLowerCase(),
+            nameUz.toLowerCase(),
+            nameRu.toLowerCase(),
+            nameEn.toLowerCase(),
+          ].filter(Boolean),
           nutrition: {
             create: {
               caloriesPer100g: calPer100g,
@@ -137,11 +195,12 @@ export class FoodService {
       return newFood;
     } catch (e: any) {
       this.logger.warn(`Could not create food "${nameUz}", falling back to query: ${e?.message}`);
+      // Only return an exact name match — never an unrelated food
       const found = await this.prisma.food.findFirst({
         where: { nameUz },
         include: { nutrition: true },
       });
-      return found || allFoods[0] || null;
+      return found || null;
     }
   }
 

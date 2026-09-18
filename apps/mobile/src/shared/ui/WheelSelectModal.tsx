@@ -10,6 +10,7 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
 import { X, Check } from 'lucide-react-native';
+import { Radius, Spacing, FontSize } from '../theme/spacing';
 
 interface OptionItem<T = number | string> {
   label: string;
@@ -37,58 +38,34 @@ export function WheelSelectModal<T extends number | string>({
   onClose,
   onConfirm,
   unit,
-  isDark = true,
+  isDark = false,
 }: WheelSelectModalProps<T>) {
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.backdrop}>
-        <TouchableOpacity
-          style={StyleSheet.absoluteFill}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-        <View
-          style={[
-            styles.sheetContainer,
-            { backgroundColor: isDark ? '#121A2B' : '#FFFFFF' },
-          ]}
-        >
-          {/* Handle Bar */}
-          <View style={styles.handleBar} />
+  const bg = isDark ? '#171A21' : '#FFFFFF';
+  const text = isDark ? '#F4F5F7' : '#14171C';
+  const muted = isDark ? '#6B7380' : '#8B939E';
+  const primary = '#1A9B6C';
+  const track = isDark ? '#0F1115' : '#F7F7F5';
 
-          {/* Header */}
-          <View style={styles.headerRow}>
-            <Text
-              style={[
-                styles.titleText,
-                { color: isDark ? '#F8FAFC' : '#0F172A' },
-              ]}
-            >
-              {title}
-            </Text>
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        <View style={[styles.sheet, { backgroundColor: bg }]}>
+          <View style={styles.handle} />
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: text }]}>{title}</Text>
             <TouchableOpacity
-              style={styles.closeBtn}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 onClose();
               }}
+              hitSlop={10}
             >
-              <X color={isDark ? '#94A3B8' : '#64748B'} size={20} />
+              <X color={muted} size={20} />
             </TouchableOpacity>
           </View>
 
-          {/* Picker Wheel Area */}
-          <View
-            style={[
-              styles.pickerWrapper,
-              { backgroundColor: isDark ? '#0A0E1A' : '#F8FAFC' },
-            ]}
-          >
+          <View style={[styles.pickerWrap, { backgroundColor: track, borderColor: isDark ? '#2A2F3A' : '#E6E6E2' }]}>
             <Picker
               selectedValue={selectedValue}
               onValueChange={(val) => {
@@ -96,43 +73,30 @@ export function WheelSelectModal<T extends number | string>({
                 onValueChange(val as T);
               }}
               style={styles.picker}
-              itemStyle={[
-                styles.pickerItem,
-                { color: isDark ? '#00E599' : '#059669' },
-              ]}
-              dropdownIconColor={isDark ? '#00E599' : '#059669'}
+              itemStyle={[styles.pickerItem, { color: primary }]}
             >
-              {options.map((opt) => (
+              {(options ?? []).map((opt) => (
                 <Picker.Item
                   key={String(opt.value)}
                   label={unit ? `${opt.label} ${unit}` : opt.label}
                   value={opt.value}
-                  color={
-                    Platform.OS === 'android'
-                      ? isDark
-                        ? '#F8FAFC'
-                        : '#0F172A'
-                      : isDark
-                      ? '#00E599'
-                      : '#059669'
-                  }
+                  color={Platform.OS === 'android' ? text : primary}
                 />
               ))}
             </Picker>
           </View>
 
-          {/* Confirm Done Button */}
           <TouchableOpacity
             activeOpacity={0.88}
-            style={styles.confirmBtn}
+            style={[styles.confirm, { backgroundColor: primary }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              if (onConfirm) onConfirm();
+              onConfirm?.();
               onClose();
             }}
           >
-            <Check color="#0A0E1A" size={18} strokeWidth={3} />
-            <Text style={styles.confirmBtnText}>Tanlash</Text>
+            <Check color="#FFFFFF" size={18} strokeWidth={2.5} />
+            <Text style={styles.confirmText}>Tanlash</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -143,70 +107,60 @@ export function WheelSelectModal<T extends number | string>({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
-  sheetContainer: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 36,
+  sheet: {
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xxxl,
   },
-  handleBar: {
-    width: 42,
+  handle: {
+    width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#64748B',
+    backgroundColor: '#C5C5C5',
     alignSelf: 'center',
-    marginBottom: 14,
+    marginBottom: Spacing.md,
   },
-  headerRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
-  titleText: {
-    fontSize: 18,
-    fontWeight: '800',
+  title: {
+    fontSize: FontSize.lg,
+    fontWeight: '700',
   },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pickerWrapper: {
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: 'rgba(0, 229, 153, 0.25)',
+  pickerWrap: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 20,
-    justifyContent: 'center',
+    marginBottom: Spacing.lg,
   },
   picker: {
     width: '100%',
-    height: Platform.OS === 'ios' ? 200 : 60,
+    height: Platform.OS === 'ios' ? 180 : 56,
   },
   pickerItem: {
-    fontSize: 22,
-    fontWeight: '800',
-    height: 200,
+    fontSize: 20,
+    fontWeight: '600',
+    height: 180,
   },
-  confirmBtn: {
+  confirm: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#00E599',
-    borderRadius: 14,
-    paddingVertical: 14,
+    gap: Spacing.sm,
+    borderRadius: Radius.md,
+    height: 52,
   },
-  confirmBtnText: {
-    color: '#0A0E1A',
-    fontSize: 16,
-    fontWeight: '800',
+  confirmText: {
+    color: '#FFFFFF',
+    fontSize: FontSize.md,
+    fontWeight: '600',
   },
 });

@@ -4,6 +4,19 @@ import { GoogleGenAI } from '@google/genai';
 import { FOOD_ANALYSIS_SYSTEM_PROMPT } from './prompts/food-analysis.prompt';
 import { AiFoodAnalysisResult } from './ai.types';
 
+/** Default multimodal (vision) models — cheapest/fastest first, stable 2.5 as last resort. */
+const DEFAULT_VISION_MODELS = [
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-flash-latest',
+];
+
 @Injectable()
 export class GeminiService {
   private readonly logger = new Logger(GeminiService.name);
@@ -14,9 +27,23 @@ export class GeminiService {
     if (apiKey) {
       this.aiClient = new GoogleGenAI({ apiKey });
       this.logger.log('Gemini AI Client initialized successfully.');
+      this.logger.log(`Vision model fallback chain: ${this.getModelsToTry().join(' → ')}`);
     } else {
       this.logger.error('GEMINI_API_KEY is not set in environment!');
     }
+  }
+
+  /** Comma-separated override via GEMINI_MODELS=model-a,model-b */
+  private getModelsToTry(): string[] {
+    const raw = this.configService.get<string>('GEMINI_MODELS')?.trim();
+    if (raw) {
+      const fromEnv = raw
+        .split(',')
+        .map((m) => m.trim())
+        .filter(Boolean);
+      if (fromEnv.length > 0) return fromEnv;
+    }
+    return DEFAULT_VISION_MODELS;
   }
 
   async analyzeFoodImage(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<AiFoodAnalysisResult> {
@@ -30,8 +57,7 @@ export class GeminiService {
       this.aiClient = new GoogleGenAI({ apiKey });
     }
 
-    // Google API instructed to use gemini-3.6-flash
-    const modelsToTry = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    const modelsToTry = this.getModelsToTry();
     let lastError: any = null;
 
     for (const modelName of modelsToTry) {
@@ -71,7 +97,9 @@ export class GeminiService {
         if (parsed.isFood === false || !parsed.items || parsed.items.length === 0) {
           return {
             isFood: false,
-            rejectionReason: parsed.rejectionReason || 'Rasmda taom yoki ichimlik aniqlanmadi. Iltimos, haqiqiy taom rasmini oling.',
+            rejectionReason:
+              parsed.rejectionReason ||
+              'Rasm xira yoki taom aniqlanmadi. Iltimos, kamerani yaqinroq tutib, yorug‘ joyda qayta oling.',
             items: [],
             rawText: text,
           };
@@ -90,7 +118,7 @@ export class GeminiService {
 
     this.logger.error('All Gemini Vision models failed:', lastError);
     throw new UnprocessableEntityException(
-      'Rasm tahlilida xatolik yuz berdi. Iltimos, qaytadan urinib ko‘ring.',
+      'Rasm tahlilida xatolik yuz berdi. Iltimos, kamerani yaxshi tutib, qaytadan urinib ko‘ring.',
     );
   }
 }

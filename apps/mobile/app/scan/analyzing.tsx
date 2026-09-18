@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,90 +6,69 @@ import {
   Image,
   Animated,
   Easing,
-  TouchableOpacity,
+  Pressable,
   Dimensions,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import {
-  CheckCircle2,
+  Check,
   Sparkles,
   X,
   Camera,
-  Cpu,
+  ScanSearch,
   Scale,
-  UtensilsCrossed,
-  Lightbulb,
+  Salad,
 } from 'lucide-react-native';
 import { useAppStore } from '../../src/store/useAppStore';
 import { useScanStore } from '../../src/store/useScanStore';
+import { FontSize, Radius, Spacing } from '../../src/shared/theme/spacing';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_W } = Dimensions.get('window');
+const PHOTO_H = Math.min(280, SCREEN_W * 0.72);
 
-interface StepItem {
-  id: number;
-  title: string;
-  sub: string;
-  icon: (color: string, size: number) => React.ReactNode;
-}
-
-const STEPS: StepItem[] = [
-  {
-    id: 1,
-    title: 'Rasm serverga yuklanmoqda',
-    sub: 'Xavfsiz va tezkor uzatish',
-    icon: (color, size) => <Camera color={color} size={size} strokeWidth={2.2} />,
-  },
-  {
-    id: 2,
-    title: 'Gemini AI taomni aniqlamoqda',
-    sub: 'Tarkib va mahsulotlar tahlili',
-    icon: (color, size) => <Cpu color={color} size={size} strokeWidth={2.2} />,
-  },
-  {
-    id: 3,
-    title: 'Porsiya hajmi baholanmoqda',
-    sub: 'Taxminiy og‘irlik va hajm',
-    icon: (color, size) => <Scale color={color} size={size} strokeWidth={2.2} />,
-  },
-  {
-    id: 4,
-    title: 'O‘zbek taomlari bazasidan hisoblanmoqda',
-    sub: 'Kaloriya, oqsil, yog‘, uglevod',
-    icon: (color, size) => <UtensilsCrossed color={color} size={size} strokeWidth={2.2} />,
-  },
+const STEPS = [
+  { title: 'Rasm yuklanmoqda', icon: Camera },
+  { title: 'Taom aniqlanmoqda', icon: ScanSearch },
+  { title: 'Porsiya baholanmoqda', icon: Scale },
+  { title: 'Kaloriya hisoblanmoqda', icon: Salad },
 ];
 
-const AI_TIPS = [
-  'Maslahat: Keyingi sahifada taom og‘irligini o‘zingizga moslab osongina o‘zgartira olasiz.',
-  'AI bazamizda 500+ dan ortiq O‘zbek milliy va zamonaviy taomlari mavjud.',
-  'Gemini Vision taomdagi oqsil, yog‘ va uglevodlarni yuqori aniqlikda hisoblaydi.',
-  'Palov, Somsa, Sho‘rva va Manti kabi taomlar milliy retseptlar asosida baholanadi.',
+const TIPS = [
+  'Keyingi sahifada og‘irlikni o‘zingizga moslab o‘zgartira olasiz.',
+  'Milliy taomlar — palov, somsa, manti — retsept asosida hisoblanadi.',
+  'Yaxshi yorug‘likda surat aniqroq natija beradi.',
 ];
 
 export default function AnalyzingScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { theme, themeMode } = useAppStore();
   const { imageUri } = useScanStore();
-
-  const currentTheme = theme();
+  const cancelAnalysis = useScanStore((s) => s.cancelAnalysis);
+  const c = theme();
   const isDark = themeMode === 'dark';
+
+  const accent = c.primary;
+  const accentSoft = c.primaryBg;
+  const surface = isDark ? 'rgba(255,255,255,0.06)' : c.card;
+  const surfaceBorder = isDark ? 'rgba(255,255,255,0.1)' : c.border;
+  const muted = c.textMuted;
+  const text = c.text;
+  const secondary = c.textSecondary;
 
   const [activeStep, setActiveStep] = useState(0);
   const [tipIndex, setTipIndex] = useState(0);
 
-  // Animations
-  const laserAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const progressAnim = useRef(new Animated.Value(0.15)).current;
+  const scanY = useRef(new Animated.Value(0)).current;
+  const ringScale = useRef(new Animated.Value(1)).current;
+  const progress = useRef(new Animated.Value(0.12)).current;
+  const tipOpacity = useRef(new Animated.Value(1)).current;
+  const breathe = useRef(new Animated.Value(0)).current;
 
-  // Step progression
   useEffect(() => {
-    const stepInterval = setInterval(() => {
+    const id = setInterval(() => {
       setActiveStep((prev) => {
         if (prev < STEPS.length - 1) {
           try {
@@ -99,217 +78,232 @@ export default function AnalyzingScreen() {
         }
         return prev;
       });
-    }, 1100);
-
-    return () => clearInterval(stepInterval);
+    }, 1400);
+    return () => clearInterval(id);
   }, []);
 
-  // Update progress bar
   useEffect(() => {
-    const targetProgress = (activeStep + 1) / (STEPS.length + 0.3);
-    Animated.timing(progressAnim, {
-      toValue: Math.min(0.96, targetProgress),
-      duration: 600,
+    Animated.timing(progress, {
+      toValue: Math.min(0.94, (activeStep + 1) / (STEPS.length + 0.35)),
+      duration: 700,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [activeStep]);
+  }, [activeStep, progress]);
 
-  // Laser scanning animation loop
   useEffect(() => {
-    const laserLoop = Animated.loop(
+    const scanLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(laserAnim, {
+        Animated.timing(scanY, {
           toValue: 1,
-          duration: 1600,
+          duration: 2200,
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-        Animated.timing(laserAnim, {
+        Animated.timing(scanY, {
           toValue: 0,
-          duration: 1600,
+          duration: 2200,
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
       ]),
     );
-    laserLoop.start();
-
-    // Pulse animation
-    const pulseLoop = Animated.loop(
+    const ringLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.06,
-          duration: 900,
+        Animated.timing(ringScale, {
+          toValue: 1.04,
+          duration: 1200,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnim, {
+        Animated.timing(ringScale, {
           toValue: 1,
-          duration: 900,
+          duration: 1200,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
       ]),
     );
-    pulseLoop.start();
+    const breatheLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathe, {
+          toValue: 1,
+          duration: 2800,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(breathe, {
+          toValue: 0,
+          duration: 2800,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    scanLoop.start();
+    ringLoop.start();
+    breatheLoop.start();
 
-    // Rotate tips
-    const tipInterval = setInterval(() => {
-      setTipIndex((prev) => (prev + 1) % AI_TIPS.length);
-    }, 3200);
+    const tipTimer = setInterval(() => {
+      Animated.timing(tipOpacity, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }).start(() => {
+        setTipIndex((i) => (i + 1) % TIPS.length);
+        Animated.timing(tipOpacity, {
+          toValue: 1,
+          duration: 320,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 3800);
 
     return () => {
-      laserLoop.stop();
-      pulseLoop.stop();
-      clearInterval(tipInterval);
+      scanLoop.stop();
+      ringLoop.stop();
+      breatheLoop.stop();
+      clearInterval(tipTimer);
     };
-  }, []);
+  }, [scanY, ringScale, breathe, tipOpacity]);
 
-  const laserTranslateY = laserAnim.interpolate({
+  const beamTranslate = scanY.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 160],
+    outputRange: [8, PHOTO_H - 28],
   });
 
-  const progressPercent = Math.round(
-    ((activeStep + 1) / STEPS.length) * 100 > 95 ? 96 : Math.round(((activeStep + 1) / STEPS.length) * 85),
+  const ambientOpacity = breathe.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 0.7],
+  });
+
+  const pct = Math.min(
+    96,
+    Math.round(((activeStep + 1) / STEPS.length) * 88),
   );
 
   const handleCancel = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    cancelAnalysis();
     router.back();
   };
 
   return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        {
-          backgroundColor: isDark ? '#080C16' : currentTheme.background,
-        },
-      ]}
-    >
-      {/* Top Header Bar */}
-      <View style={styles.topHeader}>
-        <TouchableOpacity
-          style={[
-            styles.closeBtn,
-            {
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : currentTheme.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : currentTheme.border,
-            },
-          ]}
-          onPress={handleCancel}
-          activeOpacity={0.7}
-        >
-          <X color={isDark ? '#F8FAFC' : currentTheme.text} size={20} />
-        </TouchableOpacity>
+    <View style={[styles.root, { backgroundColor: c.background }]}>
+      <LinearGradient
+        colors={
+          isDark
+            ? ['rgba(26,155,108,0.18)', 'transparent', 'transparent']
+            : ['rgba(26,155,108,0.12)', 'rgba(26,155,108,0.04)', 'transparent']
+        }
+        locations={[0, 0.35, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.ambientBlob,
+          {
+            backgroundColor: accent,
+            opacity: ambientOpacity,
+            transform: [{ scale: ringScale }],
+          },
+        ]}
+      />
 
-        <View
-          style={[
-            styles.aiEnginePill,
-            {
-              backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(5, 150, 105, 0.08)',
-              borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(5, 150, 105, 0.25)',
-            },
-          ]}
-        >
-          <Sparkles color={isDark ? '#00E599' : '#059669'} size={13} />
-          <Text style={[styles.aiEngineText, { color: isDark ? '#00E599' : '#059669' }]}>
-            Gemini Vision 2.5
-          </Text>
-        </View>
-
-        <View style={{ width: 40 }} />
-      </View>
-
-      <View style={styles.contentContainer}>
-        {/* Photo Scanner HUD */}
-        <View style={styles.hudWrapper}>
-          <View
-            style={[
-              styles.photoCard,
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <Pressable
+            onPress={handleCancel}
+            hitSlop={10}
+            style={({ pressed }) => [
+              styles.closeBtn,
               {
-                backgroundColor: isDark ? '#111827' : currentTheme.card,
-                borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : currentTheme.border,
-                shadowColor: isDark ? '#00E599' : '#64748B',
-                shadowOpacity: isDark ? 0.25 : 0.1,
+                backgroundColor: surface,
+                borderColor: surfaceBorder,
+                opacity: pressed ? 0.75 : 1,
               },
             ]}
           >
-            {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.foodImage} />
-            ) : (
-              <View style={[styles.placeholderImage, { backgroundColor: isDark ? '#151C2C' : '#EDF2F7' }]}>
-                <UtensilsCrossed color={isDark ? '#34D399' : '#059669'} size={54} />
-              </View>
-            )}
+            <X color={text} size={18} strokeWidth={2.4} />
+          </Pressable>
 
-            {/* Dark Gradient Overlay for high-tech HUD look */}
-            <LinearGradient
-              colors={['rgba(0,0,0,0.15)', 'rgba(0,0,0,0.4)']}
-              style={StyleSheet.absoluteFillObject}
-            />
+          <View style={[styles.brandChip, { backgroundColor: accentSoft, borderColor: `${accent}33` }]}>
+            <Sparkles color={accent} size={13} strokeWidth={2.2} />
+            <Text style={[styles.brandText, { color: accent }]}>Taom AI</Text>
+          </View>
 
-            {/* Animated Laser Scanning Line */}
-            <Animated.View
+          <View style={{ width: 40 }} />
+        </View>
+
+        <View style={styles.body}>
+          <Animated.View style={[styles.photoWrap, { transform: [{ scale: ringScale }] }]}>
+            <View
               style={[
-                styles.laserLineContainer,
+                styles.photoFrame,
                 {
-                  transform: [{ translateY: laserTranslateY }],
+                  borderColor: surfaceBorder,
+                  backgroundColor: isDark ? '#0F1419' : '#F1F5F9',
+                  shadowColor: accent,
                 },
               ]}
             >
+              {imageUri ? (
+                <Image source={{ uri: imageUri }} style={styles.photo} />
+              ) : (
+                <View style={styles.photoFallback}>
+                  <Salad color={accent} size={48} strokeWidth={1.6} />
+                </View>
+              )}
+
               <LinearGradient
-                colors={['transparent', '#00E599', '#34D399', '#00E599', 'transparent']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.laserGradientLine}
+                colors={['rgba(0,0,0,0.08)', 'transparent', 'transparent', 'rgba(0,0,0,0.75)']}
+                locations={[0, 0.25, 0.72, 1]}
+                style={StyleSheet.absoluteFillObject}
               />
-              <View style={styles.laserGlow} />
-            </Animated.View>
+              {/* Cover residual camera date/time stamp at bottom */}
+              <View style={styles.stampCover} />
 
-            {/* HUD Corner Brackets */}
-            <View style={[styles.hudCorner, styles.hudTopLeft, { borderColor: isDark ? '#00E599' : '#059669' }]} />
-            <View style={[styles.hudCorner, styles.hudTopRight, { borderColor: isDark ? '#00E599' : '#059669' }]} />
-            <View style={[styles.hudCorner, styles.hudBottomLeft, { borderColor: isDark ? '#00E599' : '#059669' }]} />
-            <View style={[styles.hudCorner, styles.hudBottomRight, { borderColor: isDark ? '#00E599' : '#059669' }]} />
+              <View style={[styles.corner, styles.tl, { borderColor: accent }]} />
+              <View style={[styles.corner, styles.tr, { borderColor: accent }]} />
+              <View style={[styles.corner, styles.bl, { borderColor: accent }]} />
+              <View style={[styles.corner, styles.br, { borderColor: accent }]} />
 
-            {/* Floating Live AI Radar Pill */}
-            <Animated.View
-              style={[
-                styles.floatingRadarPill,
-                { transform: [{ scale: pulseAnim }] },
-              ]}
-            >
-              <View style={styles.radarPulseDot} />
-              <Text style={styles.radarText}>AI Idrok faol</Text>
-            </Animated.View>
+              <Animated.View
+                style={[styles.beam, { transform: [{ translateY: beamTranslate }] }]}
+              >
+                <LinearGradient
+                  colors={['transparent', accent, accent, 'transparent']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.beamLine}
+                />
+                <View style={[styles.beamGlow, { backgroundColor: `${accent}40` }]} />
+              </Animated.View>
+
+              <View style={styles.liveWrap} pointerEvents="none">
+                <View style={[styles.livePill, { backgroundColor: 'rgba(8,12,16,0.72)' }]}>
+                  <View style={[styles.liveDot, { backgroundColor: accent }]} />
+                  <Text style={styles.liveLabel}>Tahlil davom etmoqda</Text>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+
+          <View style={styles.titleBlock}>
+            <Text style={[styles.title, { color: text }]}>Taom tahlil qilinmoqda</Text>
+            <Text style={[styles.subtitle, { color: secondary }]}>
+              Surat o‘qilmoqda — kaloriya va BJU hisoblanadi
+            </Text>
           </View>
-        </View>
 
-        {/* Title & Progress Header */}
-        <View style={styles.titleSection}>
-          <Text style={[styles.mainTitle, { color: isDark ? '#F8FAFC' : currentTheme.text }]}>
-            Taom tahlil qilinmoqda
-          </Text>
-          <Text style={[styles.mainSubtitle, { color: isDark ? '#94A3B8' : currentTheme.textSecondary }]}>
-            Gemini Vision va Milliy retseptlar bazasi
-          </Text>
-
-          {/* Animated Progress Bar */}
-          <View style={styles.progressContainer}>
-            <View
-              style={[
-                styles.progressBarBg,
-                { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' },
-              ]}
-            >
+          <View style={styles.progressBlock}>
+            <View style={[styles.track, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#E8EEF2' }]}>
               <Animated.View
                 style={[
-                  styles.progressBarFill,
+                  styles.fill,
                   {
-                    width: progressAnim.interpolate({
+                    width: progress.interpolate({
                       inputRange: [0, 1],
                       outputRange: ['0%', '100%'],
                     }),
@@ -317,389 +311,336 @@ export default function AnalyzingScreen() {
                 ]}
               >
                 <LinearGradient
-                  colors={['#059669', '#00E599', '#34D399']}
+                  colors={[c.primaryDark, accent, c.primaryLight]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={StyleSheet.absoluteFill}
                 />
               </Animated.View>
             </View>
-            <View style={styles.progressLabelRow}>
-              <Text style={[styles.progressPercentText, { color: isDark ? '#00E599' : '#059669' }]}>
-                {progressPercent}%
-              </Text>
-              <Text style={[styles.progressEtaText, { color: isDark ? '#64748B' : currentTheme.textMuted }]}>
-                Kuting, bir necha soniya...
-              </Text>
+            <View style={styles.progressMeta}>
+              <Text style={[styles.pct, { color: accent }]}>{pct}%</Text>
+              <Text style={[styles.wait, { color: muted }]}>Bir necha soniya…</Text>
             </View>
           </View>
-        </View>
 
-        {/* 4-Step Analysis Timeline Card */}
-        <View
-          style={[
-            styles.timelineCard,
-            {
-              backgroundColor: isDark ? '#121A2B' : currentTheme.card,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : currentTheme.border,
-              shadowColor: isDark ? '#000000' : '#64748B',
-              shadowOpacity: isDark ? 0.25 : 0.06,
-            },
-          ]}
-        >
-          {STEPS.map((step, idx) => {
-            const isDone = idx < activeStep;
-            const isCurrent = idx === activeStep;
-            const isPending = idx > activeStep;
+          <View style={[styles.stepsCard, { backgroundColor: surface, borderColor: surfaceBorder }]}>
+            {STEPS.map((step, idx) => {
+              const done = idx < activeStep;
+              const current = idx === activeStep;
+              const Icon = step.icon;
+              const iconColor = done || current ? accent : muted;
 
-            return (
-              <View key={step.id} style={styles.stepItemRow}>
-                {/* Step Icon / Status Bubble */}
-                <View
-                  style={[
-                    styles.stepIconBox,
-                    isDone && {
-                      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(5, 150, 105, 0.12)',
-                      borderColor: isDark ? '#00E599' : '#059669',
-                    },
-                    isCurrent && {
-                      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.18)' : 'rgba(217, 119, 6, 0.12)',
-                      borderColor: isDark ? '#F59E0B' : '#D97706',
-                    },
-                    isPending && {
-                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F1F5F9',
-                      borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
-                    },
-                  ]}
-                >
-                  {isDone ? (
-                    <CheckCircle2 color={isDark ? '#00E599' : '#059669'} size={18} strokeWidth={2.6} />
-                  ) : isCurrent ? (
-                    <ActivityIndicator size="small" color={isDark ? '#F59E0B' : '#D97706'} />
-                  ) : (
-                    step.icon(isDark ? '#64748B' : '#94A3B8', 16)
-                  )}
-                </View>
-
-                {/* Step Text Info */}
-                <View style={styles.stepInfoContent}>
-                  <Text
-                    style={[
-                      styles.stepTitleText,
-                      isDone && { color: isDark ? '#F8FAFC' : currentTheme.text, fontWeight: '700' },
-                      isCurrent && { color: isDark ? '#FCD34D' : '#B45309', fontWeight: '800' },
-                      isPending && { color: isDark ? '#64748B' : currentTheme.textMuted },
-                    ]}
-                  >
-                    {step.title}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.stepSubText,
-                      { color: isDark ? '#64748B' : currentTheme.textSecondary },
-                    ]}
-                  >
-                    {step.sub}
-                  </Text>
-                </View>
-
-                {/* Status Indicator on the right */}
-                {isDone && (
-                  <View style={[styles.doneBadge, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(5, 150, 105, 0.1)' }]}>
-                    <Text style={[styles.doneBadgeText, { color: isDark ? '#00E599' : '#059669' }]}>Bajarildi</Text>
+              return (
+                <View key={step.title} style={styles.stepRow}>
+                  <View style={styles.stepRail}>
+                    <View
+                      style={[
+                        styles.stepDot,
+                        {
+                          backgroundColor: done || current ? accentSoft : isDark ? 'rgba(255,255,255,0.04)' : '#F1F5F9',
+                          borderColor: done || current ? accent : surfaceBorder,
+                        },
+                      ]}
+                    >
+                      {done ? (
+                        <Check color={accent} size={14} strokeWidth={3} />
+                      ) : (
+                        <Icon color={iconColor} size={14} strokeWidth={2.2} />
+                      )}
+                    </View>
+                    {idx < STEPS.length - 1 ? (
+                      <View
+                        style={[
+                          styles.stepLine,
+                          {
+                            backgroundColor: done ? accent : surfaceBorder,
+                          },
+                        ]}
+                      />
+                    ) : null}
                   </View>
-                )}
-                {isCurrent && (
-                  <View style={[styles.doneBadge, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(217, 119, 6, 0.1)' }]}>
-                    <Text style={[styles.doneBadgeText, { color: isDark ? '#F59E0B' : '#D97706' }]}>Tahlilda</Text>
+                  <View style={styles.stepCopy}>
+                    <Text
+                      style={[
+                        styles.stepTitle,
+                        {
+                          color: current ? text : done ? text : muted,
+                          fontWeight: current ? '700' : '600',
+                        },
+                      ]}
+                    >
+                      {step.title}
+                    </Text>
+                    {current ? (
+                      <Text style={[styles.stepHint, { color: accent }]}>Hozir</Text>
+                    ) : done ? (
+                      <Text style={[styles.stepHint, { color: muted }]}>Tayyor</Text>
+                    ) : null}
                   </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
-
-        {/* AI Tip / Smart Fact Ticker at Bottom */}
-        <View
-          style={[
-            styles.tipCard,
-            {
-              backgroundColor: isDark ? 'rgba(18, 26, 43, 0.75)' : '#FFFFFF',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : currentTheme.border,
-              shadowColor: isDark ? '#000000' : '#64748B',
-              shadowOpacity: isDark ? 0.2 : 0.06,
-            },
-          ]}
-        >
-          <View style={[styles.tipIconBubble, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.14)' : 'rgba(217, 119, 6, 0.10)' }]}>
-            <Lightbulb color={isDark ? '#F59E0B' : '#D97706'} size={16} />
+                </View>
+              );
+            })}
           </View>
-          <Text
-            key={tipIndex}
-            style={[styles.tipText, { color: isDark ? '#94A3B8' : currentTheme.textSecondary }]}
+
+          <Animated.View
+            style={[
+              styles.tipBar,
+              {
+                backgroundColor: surface,
+                borderColor: surfaceBorder,
+                opacity: tipOpacity,
+              },
+            ]}
           >
-            {AI_TIPS[tipIndex]}
-          </Text>
+            <View style={[styles.tipMark, { backgroundColor: accentSoft }]}>
+              <Sparkles color={accent} size={14} />
+            </View>
+            <Text style={[styles.tipText, { color: secondary }]}>{TIPS[tipIndex]}</Text>
+          </Animated.View>
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  root: { flex: 1 },
+  safe: { flex: 1 },
+  ambientBlob: {
+    position: 'absolute',
+    top: -80,
+    alignSelf: 'center',
+    width: SCREEN_W * 0.9,
+    height: SCREEN_W * 0.55,
+    borderRadius: SCREEN_W,
+    opacity: 0.12,
   },
-  topHeader: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 10,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
   },
   closeBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  aiEnginePill: {
+  brandChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  aiEngineText: {
+  brandText: {
     fontSize: 12,
     fontWeight: '800',
-    letterSpacing: -0.2,
+    letterSpacing: 0.2,
   },
-  contentContainer: {
+  body: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
     justifyContent: 'space-between',
-    paddingBottom: 16,
   },
-  hudWrapper: {
+  photoWrap: {
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: Spacing.xs,
   },
-  photoCard: {
-    width: width - 48,
-    height: 175,
-    borderRadius: 22,
-    borderWidth: 1.5,
+  photoFrame: {
+    width: SCREEN_W - Spacing.lg * 2,
+    height: PHOTO_H,
+    borderRadius: 28,
     overflow: 'hidden',
-    position: 'relative',
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 14,
-    elevation: 6,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 8,
   },
-  foodImage: {
+  photo: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  placeholderImage: {
-    width: '100%',
-    height: '100%',
+  photoFallback: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  laserLineContainer: {
+  stampCover: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 0,
-    height: 20,
+    bottom: 0,
+    height: 36,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+  },
+  corner: {
+    position: 'absolute',
+    width: 26,
+    height: 26,
+  },
+  tl: { top: 14, left: 14, borderTopWidth: 2.5, borderLeftWidth: 2.5, borderTopLeftRadius: 10 },
+  tr: { top: 14, right: 14, borderTopWidth: 2.5, borderRightWidth: 2.5, borderTopRightRadius: 10 },
+  bl: { bottom: 14, left: 14, borderBottomWidth: 2.5, borderLeftWidth: 2.5, borderBottomLeftRadius: 10 },
+  br: { bottom: 14, right: 14, borderBottomWidth: 2.5, borderRightWidth: 2.5, borderBottomRightRadius: 10 },
+  beam: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 18,
     justifyContent: 'center',
   },
-  laserGradientLine: {
-    width: '100%',
-    height: 3,
-  },
-  laserGlow: {
+  beamLine: { height: 2.5, width: '100%' },
+  beamGlow: {
     position: 'absolute',
-    top: -4,
     left: 0,
     right: 0,
-    height: 12,
-    backgroundColor: 'rgba(0, 229, 153, 0.22)',
+    height: 14,
+    top: 2,
   },
-  hudCorner: {
+  liveWrap: {
     position: 'absolute',
-    width: 22,
-    height: 22,
+    bottom: 14,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
-  hudTopLeft: {
-    top: 10,
-    left: 10,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderTopLeftRadius: 8,
-  },
-  hudTopRight: {
-    top: 10,
-    right: 10,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderTopRightRadius: 8,
-  },
-  hudBottomLeft: {
-    bottom: 10,
-    left: 10,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderBottomLeftRadius: 8,
-  },
-  hudBottomRight: {
-    bottom: 10,
-    right: 10,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderBottomRightRadius: 8,
-  },
-  floatingRadarPill: {
-    position: 'absolute',
-    top: 12,
-    alignSelf: 'center',
+  livePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(10, 14, 26, 0.75)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 153, 0.4)',
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
-  radarPulseDot: {
+  liveDot: {
     width: 7,
     height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#00E599',
+    borderRadius: 4,
   },
-  radarText: {
-    color: '#FFFFFF',
+  liveLabel: {
+    color: '#fff',
     fontSize: 11,
     fontWeight: '700',
   },
-  titleSection: {
+  titleBlock: {
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: Spacing.md,
+    gap: 4,
   },
-  mainTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-    marginBottom: 3,
+  title: {
+    fontSize: FontSize.xl,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    textAlign: 'center',
   },
-  mainSubtitle: {
-    fontSize: 13,
+  subtitle: {
+    fontSize: FontSize.sm,
     fontWeight: '500',
-    marginBottom: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: Spacing.md,
   },
-  progressContainer: {
-    width: '100%',
+  progressBlock: {
+    marginTop: Spacing.md,
+    gap: 8,
   },
-  progressBarBg: {
-    width: '100%',
-    height: 8,
-    borderRadius: 4,
+  track: {
+    height: 7,
+    borderRadius: 999,
     overflow: 'hidden',
   },
-  progressBarFill: {
+  fill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 999,
     overflow: 'hidden',
   },
-  progressLabelRow: {
+  progressMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
   },
-  progressPercentText: {
-    fontSize: 12,
-    fontWeight: '800',
+  pct: { fontSize: 13, fontWeight: '800' },
+  wait: { fontSize: 12, fontWeight: '500' },
+  stepsCard: {
+    marginTop: Spacing.md,
+    borderRadius: Radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
-  progressEtaText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  timelineCard: {
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 1.5,
-    gap: 12,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  stepItemRow: {
+  stepRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    minHeight: 44,
   },
-  stepIconBox: {
+  stepRail: {
     width: 36,
-    height: 36,
-    borderRadius: 12,
+    alignItems: 'center',
+  },
+  stepDot: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepInfoContent: {
+  stepLine: {
+    width: 2,
     flex: 1,
+    marginVertical: 4,
+    borderRadius: 1,
   },
-  stepTitleText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  stepSubText: {
-    fontSize: 11,
-    marginTop: 1,
-  },
-  doneBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  doneBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  tipCard: {
+  stepCopy: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
+    justifyContent: 'space-between',
+    paddingLeft: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    minHeight: 30,
   },
-  tipIconBubble: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  stepTitle: {
+    fontSize: 14,
+    flex: 1,
+  },
+  stepHint: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: Spacing.sm,
+  },
+  tipBar: {
+    marginTop: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  tipMark: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tipText: {
-    fontSize: 11.5,
-    fontWeight: '600',
     flex: 1,
-    lineHeight: 16,
+    fontSize: 12.5,
+    fontWeight: '600',
+    lineHeight: 18,
   },
 });
