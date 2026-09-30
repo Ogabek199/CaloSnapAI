@@ -27,6 +27,14 @@ enum FitnessGoal {
   BUILD_MUSCLE
 }
 
+enum HealthCondition {
+  DIABETES_TYPE_1
+  DIABETES_TYPE_2
+  PREDIABETES
+  HYPERTENSION
+  HIGH_CHOLESTEROL
+}
+
 enum FoodCategory {
   UZBEK_NATIONAL
   MEAT_POULTRY
@@ -37,6 +45,13 @@ enum FoodCategory {
   DESSERT
   FRUIT_VEGETABLE
   OTHER
+}
+
+enum FoodSource {
+  CATALOG
+  OPEN_FOOD_FACTS
+  AI_DETECTED
+  USER_SUBMITTED
 }
 
 enum ScanStatus {
@@ -61,12 +76,13 @@ model User {
   avatarUrl    String?
   refreshToken String?
   isPremium    Boolean            @default(false)
+  /// null with isPremium=true means a non-expiring grant (lifetime / manual).
+  premiumUntil DateTime?
   profile      UserProfile?
   foodScans    FoodScan[]
   meals        Meal[]
   weightLogs   WeightLog[]
   waterLogs    WaterLog[]
-  passwordOtps PasswordResetOtp[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
@@ -88,6 +104,10 @@ model UserProfile {
   carbsGoalGrams   Float?
   fatGoalGrams     Float?
   waterGoalMl      Int           @default(2000)
+  /// Self-reported; only used to tailor AI advice and meal warnings, never shared.
+  healthConditions HealthCondition[] @default([])
+  /// False until the user saves real body stats; register seeds placeholder values.
+  onboardingCompleted Boolean    @default(false)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -118,19 +138,6 @@ model WaterLog {
   @@map("water_logs")
 }
 
-model PasswordResetOtp {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  codeHash  String
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@map("password_reset_otps")
-}
-
 model Food {
   id                  String         @id @default(uuid())
   name                String
@@ -142,6 +149,9 @@ model Food {
   imageUrl            String?
   defaultServingGrams Float          @default(300)
   aliases             String[]       @default([])
+  source              FoodSource     @default(CATALOG)
+  // Plain id (no relation) so deleting an account never deletes shared catalogue rows.
+  createdByUserId     String?
   nutrition           FoodNutrition?
   scanItems           FoodScanItem[]
   mealItems           MealItem[]
@@ -174,13 +184,13 @@ model FoodScan {
   userId    String?
   user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   imageUrl  String
-  status    ScanStatus     @default(COMPLETED)
+  status    ScanStatus     @default(PENDING)
   rawAiText String?
   items     FoodScanItem[]
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  @@index([userId])
+  @@index([userId, createdAt])
   @@map("food_scans")
 }
 
@@ -189,7 +199,7 @@ model FoodScanItem {
   scanId         String
   scan           FoodScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
   foodId         String
-  food           Food     @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  food           Food     @relation(fields: [foodId], references: [id], onDelete: Restrict)
   weightGrams    Float
   confidence     Float    @default(0.9)
   calories       Float
@@ -224,7 +234,7 @@ model MealItem {
   mealId      String
   meal        Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
   foodId      String
-  food        Food     @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  food        Food     @relation(fields: [foodId], references: [id], onDelete: Restrict)
   weightGrams Float
   calories    Float
   protein     Float

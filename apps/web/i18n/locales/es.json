@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "title": "CaloSnap: contador de calorías con IA a partir de una foto",
+    "description": "Haz una foto a tu comida y la IA de CaloSnap calcula calorías, proteínas, carbohidratos y grasas en segundos. Diario de comidas, escáner de códigos de barras, Chef IA y Nutricionista IA en una sola app sencilla."
+  },
+  "nav": {
+    "features": "Funciones",
+    "how": "Cómo funciona",
+    "ai": "Asistentes IA",
+    "pro": "Pro",
+    "faq": "Preguntas frecuentes",
+    "download": "Descargar",
+    "menu": "Menú",
+    "home": "Inicio"
+  },
+  "theme": {
+    "toggle": "Cambiar tema",
+    "light": "Claro",
+    "dark": "Oscuro"
+  },
+  "lang": {
+    "label": "Idioma"
+  },
+  "hero": {
+    "badge": "Seguimiento nutricional con IA",
+    "title": "Hazle una foto.",
+    "titleAccent": "Conoce tus calorías.",
+    "subtitle": "Fotografía tu comida y la IA de CaloSnap reconoce los alimentos, estima la porción y calcula calorías y macros en segundos. Sin búsquedas manuales ni conjeturas.",
+    "note": "Descarga gratuita. Disponible en 9 idiomas."
+  },
+  "store": {
+    "downloadOn": "Descárgalo en el",
+    "getItOn": "Disponible en",
+    "soon": "Próximamente"
+  },
+  "mockup": {
+    "balance": "Balance calórico de hoy",
+    "remaining": "Restantes",
+    "consumed": "Consumidas",
+    "goalKcal": "Meta (kcal)",
+    "protein": "Proteínas",
+    "carbs": "Carbohidratos",
+    "fat": "Grasas",
+    "aiTools": "Asistentes de IA",
+    "chef": "Chef IA",
+    "chefSub": "Recetas con lo que tienes",
+    "chat": "Nutricionista IA",
+    "chatSub": "Consejos de nutrición",
+    "water": "Agua",
+    "addWater": "+250 ml",
+    "todaysMeals": "Comidas de hoy",
+    "seeAll": "Todo",
+    "breakfast": "🍳 Desayuno",
+    "lunch": "🍲 Almuerzo",
+    "tabHome": "Inicio",
+    "tabDiary": "Diario",
+    "tabScan": "Escanear",
+    "tabProfile": "Perfil",
+    "meal1": "Avena con frutos rojos",
+    "meal2": "Ensalada de pollo"
+  },
+  "features": {
+    "title": "Todo lo que necesitas para comer mejor",
+    "subtitle": "Una sola app para registrar comidas, seguir tu progreso y alcanzar tu objetivo, sin la parte tediosa.",
+    "scan": {
+      "title": "Escáner de fotos con IA",
+      "text": "Reconoce platos, varios alimentos en un mismo plato y el tamaño de las porciones, y calcula calorías, proteínas, carbohidratos y grasas."
+    },
+    "barcode": {
+      "title": "Códigos de barras y etiquetas",
+      "text": "Escanea el código de barras de un producto o fotografía su etiqueta nutricional y los valores se rellenan solos."
+    },
+    "diary": {
+      "title": "Diario, agua y peso",
+      "text": "Consulta todas las comidas del día, registra el agua con un toque y sigue tu peso en un gráfico claro."
+    },
+    "goal": {
+      "title": "Objetivo calórico personalizado",
+      "text": "Tu meta diaria y tus macros se calculan según tu edad, altura, peso, actividad y objetivo."
+    },
+    "feast": {
+      "title": "Modo festín",
+      "text": "¿Una boda o una cena de fiesta? Reparte las calorías extra poco a poco en los días siguientes y mantén tu racha."
+    },
+    "secure": {
+      "title": "Privada y segura",
+      "text": "Bloquea la app con Face ID o huella dactilar. Sin anuncios, y nunca vendemos tus datos."
+    }
+  },
+  "how": {
+    "title": "Cómo funciona",
+    "subtitle": "Registrar una comida lleva unos cinco segundos.",
+    "snap": {
+      "title": "Haz una foto",
+      "text": "Fotografía tu plato, escanea un código de barras o elige una foto de tu galería."
+    },
+    "analyze": {
+      "title": "La IA analiza",
+      "text": "La IA identifica cada alimento, estima su peso y calcula su valor nutricional."
+    },
+    "log": {
+      "title": "Añade al diario",
+      "text": "Ajusta la porción si hace falta y guarda. Tu progreso diario se actualiza al instante."
+    }
+  },
+  "ai": {
+    "badge": "Asistentes IA",
+    "title": "Un nutricionista y un chef en tu bolsillo",
+    "subtitle": "Además de contar calorías, CaloSnap te ayuda a decidir qué comer a continuación.",
+    "chef": {
+      "title": "Chef IA",
+      "text": "Fotografía tu nevera o escribe tus ingredientes y recibe 3 recetas saludables adaptadas a tu objetivo, con las calorías por ración."
+    },
+    "nutritionist": {
+      "title": "Nutricionista IA",
+      "text": "Pregunta lo que quieras sobre tu alimentación y recibe respuestas basadas en tu objetivo, tu meta diaria y lo que has comido hoy."
+    },
+    "health": {
+      "title": "Alertas de salud",
+      "text": "Si tienes diabetes, hipertensión o colesterol alto, revisamos tus comidas y te avisamos con tacto cuando algo no te conviene."
+    },
+    "disclaimer": "CaloSnap ofrece orientación general y no sustituye el consejo médico. Sigue siempre las indicaciones de tu médico."
+  },
+  "pro": {
+    "badge": "CaloSnap Pro",
+    "title": "Desbloquea todo el poder de la IA",
+    "subtitle": "Las funciones básicas son gratis. Pro elimina los límites y añade los asistentes IA.",
+    "items": {
+      "scan": "Escaneos con IA ilimitados y códigos de barras internacionales",
+      "multi": "Varios platos o una mesa entera en una sola foto",
+      "chef": "Chef IA: recetas saludables con lo que tienes en la nevera",
+      "chat": "Chat personal con el Nutricionista IA",
+      "health": "Alertas en tus comidas para diabetes, tensión arterial y colesterol",
+      "feast": "Modo festín para equilibrar tus días libres"
+    },
+    "trial": "Prueba gratuita de 3 días",
+    "note": "Planes semanales, mensuales y anuales. Los precios se muestran en la app en tu moneda local. Cancela cuando quieras desde los ajustes de App Store o Google Play."
+  },
+  "faq": {
+    "title": "Preguntas frecuentes",
+    "accuracy": {
+      "q": "¿Qué tan precisa es la estimación de calorías?",
+      "a": "En la mayoría de las comidas habituales, la IA se acerca mucho a los valores reales, pero sigue siendo una estimación. Siempre puedes corregir el alimento o el peso de la porción antes de guardar."
+    },
+    "foods": {
+      "q": "¿Qué alimentos reconoce?",
+      "a": "Platos caseros, cocina tradicional, comida rápida, bebidas y productos envasados. Para los envasados, escanear el código de barras o la etiqueta es lo más preciso."
+    },
+    "privacy": {
+      "q": "¿Mis datos están seguros?",
+      "a": "Tus datos solo se usan para que la app funcione. No mostramos anuncios ni vendemos datos, y puedes eliminar tu cuenta y todos tus datos desde tu perfil en cualquier momento."
+    },
+    "free": {
+      "q": "¿CaloSnap es gratis?",
+      "a": "Sí. El diario, los objetivos, el seguimiento de agua y peso y los escaneos diarios con IA son gratis. CaloSnap Pro añade escaneos ilimitados y los asistentes IA."
+    },
+    "cancel": {
+      "q": "¿Cómo cancelo mi suscripción?",
+      "a": "Las suscripciones se gestionan a través de App Store o Google Play. Abre los ajustes de suscripciones de tu cuenta en el móvil y cancélala desde ahí."
+    },
+    "languages": {
+      "q": "¿En qué idiomas está disponible?",
+      "a": "Uzbeko, ruso, inglés, turco, kazajo, coreano, español, alemán y francés."
+    }
+  },
+  "cta": {
+    "title": "Empieza a comer mejor hoy",
+    "subtitle": "Descarga CaloSnap y registra tu primera comida en segundos."
+  },
+  "footer": {
+    "tagline": "Contador de calorías con IA a partir de una foto.",
+    "product": "Producto",
+    "legal": "Legal",
+    "privacy": "Política de privacidad",
+    "terms": "Términos de uso",
+    "deleteAccount": "Eliminar cuenta",
+    "contact": "Contacto",
+    "telegram": "Escríbenos por Telegram",
+    "rights": "Todos los derechos reservados."
+  },
+  "legal": {
+    "back": "Volver al inicio"
+  },
+  "notFound": {
+    "title": "Página no encontrada",
+    "text": "La página que buscas no existe o se ha movido."
+  }
+}

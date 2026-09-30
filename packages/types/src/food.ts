@@ -22,6 +22,10 @@ export interface Food {
   nutrition: NutritionPer100g;
   defaultServingGrams?: number;
   aliases?: string[];
+  barcode?: string | null;
+  source?: FoodSource;
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type FoodSource = 'CATALOG' | 'OPEN_FOOD_FACTS' | 'AI_DETECTED' | 'USER_SUBMITTED';

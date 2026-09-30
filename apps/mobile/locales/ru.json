@@ -1,0 +1,5 @@
+{
+  "NSCameraUsageDescription": "CaloSnap использует камеру, чтобы фотографировать блюда и сканировать штрих-коды и этикетки.",
+  "NSPhotoLibraryUsageDescription": "CaloSnap позволяет выбрать фото блюда, этикетку продукта или фото профиля из галереи.",
+  "NSFaceIDUsageDescription": "CaloSnap использует Face ID для безопасного входа в приложение."
+}

@@ -1,12 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NutritionService } from '../nutrition/nutrition.service';
 import { FoodService } from '../food/food.service';
 import { MealType } from '@prisma/client';
 import { DailyDiarySummary, MealGroup } from '@eda/types';
 
-const DEMO_USER_ID = 'demo-user';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_RANGE_DAYS = 366;
 
 @Injectable()
 export class DiaryService {
@@ -16,23 +16,11 @@ export class DiaryService {
     private readonly foodService: FoodService,
   ) {}
 
-  private async ensureUserExists(userId: string): Promise<string> {
-    const targetId = userId || DEMO_USER_ID;
-    try {
-      await this.prisma.user.upsert({
-        where: { id: targetId },
-        update: {},
-        create: {
-          id: targetId,
-          email: `${targetId}@eda.ai`,
-          password: 'demo_hashed_password',
-          name: 'Foydalanuvchi',
-        },
-      });
-    } catch (e) {
-      // User might already exist or concurrent request created it
+  private requireUserId(userId: string | undefined): string {
+    if (!userId) {
+      throw new UnauthorizedException('Autentifikatsiya talab qilinadi');
     }
-    return targetId;
+    return userId;
   }
 
   /** Local calendar day bounds from YYYY-MM-DD */
@@ -54,12 +42,22 @@ export class DiaryService {
     return { start, end, key: dateStr };
   }
 
-  private todayKeyLocal(): string {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
+  private dayKey(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
+  }
+
+  private todayKeyLocal(): string {
+    return this.dayKey(new Date());
+  }
+
+  /** Clients east of the server timezone may already be on the next calendar day. */
+  private latestAllowedKey(): string {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return this.dayKey(tomorrow);
   }
 
   async getTodaySummary(userId?: string): Promise<DailyDiarySummary> {
@@ -67,11 +65,10 @@ export class DiaryService {
   }
 
   async getSummaryForDate(userId: string | undefined, dateStr: string): Promise<DailyDiarySummary> {
-    const targetUserId = await this.ensureUserExists(userId || DEMO_USER_ID);
+    const targetUserId = this.requireUserId(userId);
     const { start, end, key } = this.parseLocalDay(dateStr);
 
-    const todayKey = this.todayKeyLocal();
-    if (key > todayKey) {
+    if (key > this.latestAllowedKey()) {
       throw new BadRequestException('Kelajak kunlar uchun kundalik mavjud emas');
     }
 
@@ -173,7 +170,7 @@ export class DiaryService {
     userId: string,
     dto: { mealType: MealType; foodId: string; weightGrams: number; scanId?: string },
   ) {
-    const targetUserId = await this.ensureUserExists(userId || DEMO_USER_ID);
+    const targetUserId = this.requireUserId(userId);
 
     const food = await this.foodService.findById(dto.foodId);
     if (!food || !food.nutrition) {
@@ -189,10 +186,6 @@ export class DiaryService {
       fiber: n.fiberPer100g ?? n.fiber ?? 0,
     };
     const nutrition = this.nutritionService.calculateForWeight(dto.weightGrams, per100);
-
-    // #region agent log
-    fetch('http://127.0.0.1:7792/ingest/6c5ee04d-5922-41f6-a1d7-1daa74bc9cfe',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d39391'},body:JSON.stringify({sessionId:'d39391',runId:'post-fix',hypothesisId:'H5',location:'diary.service.ts:addMealItem',message:'meal item nutrition calc',data:{foodId:dto.foodId,weightGrams:dto.weightGrams,per100,calories:nutrition.calories,isNaN:Number.isNaN(nutrition.calories)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     if ([nutrition.calories, nutrition.protein, nutrition.carbs, nutrition.fat].some((v) => !Number.isFinite(v))) {
       throw new BadRequestException('Taom ozuqaviy qiymati hisoblanmadi');
@@ -238,8 +231,30 @@ export class DiaryService {
     return mealItem;
   }
 
+  async addMealItemsBatch(
+    userId: string,
+    items: { mealType: MealType; foodId: string; weightGrams: number; scanId?: string }[],
+  ): Promise<DailyDiarySummary> {
+    const targetUserId = this.requireUserId(userId);
+
+    // Validate every food up front so a bad id doesn't leave the batch half-saved.
+    const ids = [...new Set(items.map((i) => i.foodId))];
+    const found = await this.prisma.food.findMany({
+      where: { id: { in: ids }, nutrition: { isNot: null } },
+      select: { id: true },
+    });
+    if (found.length !== ids.length) {
+      throw new NotFoundException('Tanlangan taomlardan biri bazada topilmadi');
+    }
+
+    for (const item of items) {
+      await this.addMealItem(targetUserId, item);
+    }
+    return this.getTodaySummary(targetUserId);
+  }
+
   async removeMealItem(userId: string, itemId: string) {
-    const targetUserId = await this.ensureUserExists(userId || DEMO_USER_ID);
+    const targetUserId = this.requireUserId(userId);
     const item = await this.prisma.mealItem.findUnique({
       where: { id: itemId },
       include: { meal: true },
@@ -257,7 +272,7 @@ export class DiaryService {
   }
 
   async updateMealItem(userId: string, itemId: string, weightGrams: number) {
-    const targetUserId = await this.ensureUserExists(userId || DEMO_USER_ID);
+    const targetUserId = this.requireUserId(userId);
     const item = await this.prisma.mealItem.findUnique({
       where: { id: itemId },
       include: { meal: true, food: { include: { nutrition: true } } },
@@ -304,11 +319,14 @@ export class DiaryService {
    * from/to: YYYY-MM-DD local calendar keys.
    */
   async getRangeSummary(userId: string, fromStr: string, toStr: string) {
-    const targetUserId = await this.ensureUserExists(userId || DEMO_USER_ID);
+    const targetUserId = this.requireUserId(userId);
     const { start: fromStart } = this.parseLocalDay(fromStr);
     const { end: toEnd } = this.parseLocalDay(toStr);
     if (fromStr > toStr) {
       throw new BadRequestException('from sana to dan katta bo‘lishi mumkin emas');
+    }
+    if (toEnd.getTime() - fromStart.getTime() > MAX_RANGE_DAYS * 24 * 60 * 60 * 1000) {
+      throw new BadRequestException(`Sana oralig‘i ${MAX_RANGE_DAYS} kundan oshmasligi kerak`);
     }
 
     let goalCalories = 2150;
@@ -331,20 +349,12 @@ export class DiaryService {
     // Seed empty days
     const cursor = new Date(fromStart);
     while (cursor < toEnd) {
-      const y = cursor.getFullYear();
-      const m = String(cursor.getMonth() + 1).padStart(2, '0');
-      const d = String(cursor.getDate()).padStart(2, '0');
-      byDate.set(`${y}-${m}-${d}`, { calories: 0, protein: 0, carbs: 0, fat: 0, logged: false });
+      byDate.set(this.dayKey(cursor), { calories: 0, protein: 0, carbs: 0, fat: 0, logged: false });
       cursor.setDate(cursor.getDate() + 1);
     }
 
     for (const meal of meals) {
-      const eaten = new Date(meal.eatenAt);
-      const y = eaten.getFullYear();
-      const m = String(eaten.getMonth() + 1).padStart(2, '0');
-      const d = String(eaten.getDate()).padStart(2, '0');
-      const key = `${y}-${m}-${d}`;
-      const bucket = byDate.get(key);
+      const bucket = byDate.get(this.dayKey(new Date(meal.eatenAt)));
       if (!bucket) continue;
       for (const item of meal.items) {
         bucket.calories += item.calories || 0;
@@ -365,13 +375,14 @@ export class DiaryService {
       goalHit: v.logged && v.calories > 0 && v.calories <= goalCalories * 1.05 && v.calories >= goalCalories * 0.85,
     }));
 
-    // Streak: consecutive logged days ending at today (or toStr if today in range)
+    // Streak: consecutive logged days ending at today; an empty today doesn't break it until the day is over.
     const todayKey = this.todayKeyLocal();
     let streak = 0;
     for (let i = days.length - 1; i >= 0; i--) {
       const day = days[i];
       if (day.date > todayKey) continue;
       if (day.logged) streak += 1;
+      else if (day.date === todayKey) continue;
       else break;
     }
 

@@ -2,11 +2,28 @@ import { useState, useCallback } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useDiaryStore } from '../../store/useDiaryStore';
 import { useToastStore } from '../../store/useToastStore';
+import { useAppStore, useStrings } from '../../store/useAppStore';
+import { foodName } from '../../shared/i18n/languages';
+
+const MIN_GRAMS = 30;
+const MAX_GRAMS = 1200;
+
+type Macro = 'calories' | 'protein' | 'carbs' | 'fat';
+
+function per100(item: DiaryItemLike, key: Macro, weight: number): number {
+  const fromFood = item.food?.nutrition?.[key];
+  if (typeof fromFood === 'number') return fromFood;
+  const total = item.nutrition?.[key];
+  if (typeof total === 'number' && weight > 0) {
+    return Math.round((total / weight) * 1000) / 10;
+  }
+  return 0;
+}
 
 type DiaryItemLike = {
   id: string;
   weightGrams: number;
-  food?: { nameUz?: string; name?: string; nutrition?: { calories?: number; protein?: number; carbs?: number; fat?: number } };
+  food?: { nameUz?: string; nameRu?: string; nameEn?: string; name?: string; nutrition?: { calories?: number; protein?: number; carbs?: number; fat?: number } };
   nutrition?: { calories?: number; protein?: number; carbs?: number; fat?: number };
 };
 
@@ -21,8 +38,11 @@ export type EditItemState = {
 };
 
 export function useDiaryItemEditor() {
-  const { removeDiaryItem, updateDiaryItem } = useDiaryStore();
-  const { showToast } = useToastStore();
+  const removeDiaryItem = useDiaryStore((s) => s.removeDiaryItem);
+  const updateDiaryItem = useDiaryStore((s) => s.updateDiaryItem);
+  const showToast = useToastStore((s) => s.showToast);
+  const strings = useStrings();
+  const language = useAppStore((st) => st.language);
 
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; weight: number } | null>(null);
@@ -35,72 +55,69 @@ export function useDiaryItemEditor() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setItemToDelete({
       id: item.id,
-      name: item.food?.nameUz || item.food?.name || 'Taom',
+      name: foodName(item.food, language, strings.defaultFoodName),
       weight: item.weightGrams,
     });
     setDeleteVisible(true);
-  }, []);
+  }, [strings.defaultFoodName, language]);
 
   const confirmDelete = useCallback(async () => {
     if (!itemToDelete) return;
+    if (!useDiaryStore.getState().isSelectedToday()) {
+      setDeleteVisible(false);
+      showToast(strings.onlyTodayEdit, 'warning');
+      return;
+    }
     try {
       await removeDiaryItem(itemToDelete.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setDeleteVisible(false);
       setItemToDelete(null);
-      showToast('Taom o‘chirildi', 'info');
+      showToast(strings.itemDeleted, 'info');
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showToast(e?.message || 'O‘chirishda xatolik', 'error');
+      showToast(e?.message || strings.errGeneric, 'error');
     }
-  }, [itemToDelete, removeDiaryItem, showToast]);
+  }, [itemToDelete, removeDiaryItem, showToast, strings]);
 
   const promptEdit = useCallback((item: DiaryItemLike) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const w = item.weightGrams || 100;
-    const calPer100 =
-      item.food?.nutrition?.calories ||
-      Math.round(((item.nutrition?.calories || 0) / w) * 100) ||
-      150;
-    const protPer100 =
-      item.food?.nutrition?.protein ||
-      Math.round(((item.nutrition?.protein || 0) / w) * 100) ||
-      10;
-    const carbPer100 =
-      item.food?.nutrition?.carbs ||
-      Math.round(((item.nutrition?.carbs || 0) / w) * 100) ||
-      20;
-    const fatPer100 =
-      item.food?.nutrition?.fat ||
-      Math.round(((item.nutrition?.fat || 0) / w) * 100) ||
-      8;
 
     setItemToEdit({
       id: item.id,
-      name: item.food?.nameUz || item.food?.name || 'Taom',
+      name: foodName(item.food, language, strings.defaultFoodName),
       weight: w,
-      caloriesPer100g: calPer100,
-      proteinPer100g: protPer100,
-      carbsPer100g: carbPer100,
-      fatPer100g: fatPer100,
+      caloriesPer100g: per100(item, 'calories', w),
+      proteinPer100g: per100(item, 'protein', w),
+      carbsPer100g: per100(item, 'carbs', w),
+      fatPer100g: per100(item, 'fat', w),
     });
     setEditWeight(String(w));
     setEditVisible(true);
-  }, []);
+  }, [strings.defaultFoodName, language]);
 
   const adjustWeight = useCallback((delta: number) => {
     Haptics.selectionAsync();
     setEditWeight((prev) => {
       const current = parseInt(prev, 10) || 300;
-      return String(Math.max(30, Math.min(1200, current + delta)));
+      return String(Math.max(MIN_GRAMS, Math.min(MAX_GRAMS, current + delta)));
     });
   }, []);
 
   const confirmEdit = useCallback(async () => {
     if (!itemToEdit) return;
     const grams = parseInt(editWeight, 10);
-    if (isNaN(grams) || grams < 30 || grams > 1200) {
-      showToast('Gramm 30–1200 oralig‘ida bo‘lishi kerak', 'warning');
+    if (isNaN(grams) || grams < MIN_GRAMS || grams > MAX_GRAMS) {
+      showToast(
+        strings.gramsRange.replace('{min}', String(MIN_GRAMS)).replace('{max}', String(MAX_GRAMS)),
+        'warning',
+      );
+      return;
+    }
+    if (!useDiaryStore.getState().isSelectedToday()) {
+      setEditVisible(false);
+      showToast(strings.onlyTodayEdit, 'warning');
       return;
     }
     try {
@@ -108,12 +125,12 @@ export function useDiaryItemEditor() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setEditVisible(false);
       setItemToEdit(null);
-      showToast('Porsiya yangilandi', 'success');
+      showToast(strings.portionUpdated, 'success');
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showToast(e?.message || 'Yangilashda xatolik', 'error');
+      showToast(e?.message || strings.errGeneric, 'error');
     }
-  }, [itemToEdit, editWeight, updateDiaryItem, showToast]);
+  }, [itemToEdit, editWeight, updateDiaryItem, showToast, strings]);
 
   const grams = parseInt(editWeight, 10) || 0;
   const preview = itemToEdit

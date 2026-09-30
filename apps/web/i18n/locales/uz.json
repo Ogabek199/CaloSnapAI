@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "title": "CaloSnap: rasm orqali kaloriya hisoblovchi AI",
+    "description": "Taomni suratga oling, CaloSnap AI bir necha soniyada kaloriya, oqsil, uglevod va yog‘ni hisoblaydi. Ovqat kundaligi, shtrix-kod skaneri, AI Oshpaz va AI Dietolog bitta oddiy ilovada."
+  },
+  "nav": {
+    "features": "Imkoniyatlar",
+    "how": "Qanday ishlaydi",
+    "ai": "AI yordamchilar",
+    "pro": "Pro",
+    "faq": "Savollar",
+    "download": "Yuklab olish",
+    "menu": "Menyu",
+    "home": "Bosh sahifa"
+  },
+  "theme": {
+    "toggle": "Mavzuni almashtirish",
+    "light": "Yorug‘",
+    "dark": "Qorong‘i"
+  },
+  "lang": {
+    "label": "Til"
+  },
+  "hero": {
+    "badge": "Sun’iy intellekt asosida ovqatlanish nazorati",
+    "title": "Suratga oling.",
+    "titleAccent": "Kaloriyani biling.",
+    "subtitle": "Taomingizni suratga oling: CaloSnap AI taomni taniydi, porsiyani baholaydi va bir necha soniyada kaloriya hamda makronutrientlarni hisoblaydi. Qo‘lda qidirish ham, taxmin qilish ham shart emas.",
+    "note": "Bepul yuklab oling. 9 tilda mavjud."
+  },
+  "store": {
+    "downloadOn": "Yuklab oling",
+    "getItOn": "Yuklab oling",
+    "soon": "Tez orada"
+  },
+  "mockup": {
+    "balance": "Bugungi kaloriya balansi",
+    "remaining": "Qoldi",
+    "consumed": "Qabul qilindi",
+    "goalKcal": "Maqsad (kcal)",
+    "protein": "Oqsillar",
+    "carbs": "Uglevodlar",
+    "fat": "Yog‘lar",
+    "aiTools": "AI yordamchilar",
+    "chef": "AI Oshpaz",
+    "chefSub": "Bor mahsulotlardan retsept",
+    "chat": "AI Dietolog",
+    "chatSub": "Ovqatlanish bo‘yicha maslahat",
+    "water": "Suv",
+    "addWater": "+250 ml",
+    "todaysMeals": "Bugungi taomlar",
+    "seeAll": "Barchasi",
+    "breakfast": "🍳 Nonushta",
+    "lunch": "🍲 Tushlik",
+    "tabHome": "Asosiy",
+    "tabDiary": "Kundalik",
+    "tabScan": "Skaner",
+    "tabProfile": "Profil",
+    "meal1": "Rezavorli suli bo‘tqasi",
+    "meal2": "Tovuqli salat"
+  },
+  "features": {
+    "title": "To‘g‘ri ovqatlanish uchun kerakli hamma narsa",
+    "subtitle": "Ovqatni yozib borish, natijani kuzatish va maqsadga erishish uchun bitta ilova, zerikarli ishlarsiz.",
+    "scan": {
+      "title": "AI foto-skaner",
+      "text": "Taomni, bitta likopchadagi bir nechta ovqatni va porsiya hajmini aniqlaydi, so‘ng kaloriya, oqsil, uglevod va yog‘ni hisoblaydi."
+    },
+    "barcode": {
+      "title": "Shtrix-kod va yorliqlar",
+      "text": "Mahsulot shtrix-kodini skanerlang yoki ozuqaviy qiymat yorlig‘ini suratga oling, qiymatlar o‘zi to‘ldiriladi."
+    },
+    "diary": {
+      "title": "Kundalik, suv va vazn",
+      "text": "Kun davomidagi barcha taomlarni ko‘ring, suvni bir bosishda qo‘shing va vazningizni aniq grafikda kuzating."
+    },
+    "goal": {
+      "title": "Shaxsiy kaloriya maqsadi",
+      "text": "Kunlik me’yor va makronutrientlar yoshingiz, bo‘yingiz, vazningiz, faolligingiz va maqsadingizga qarab hisoblanadi."
+    },
+    "feast": {
+      "title": "Ziyofat rejimi",
+      "text": "To‘y yoki bayram dasturxoni bo‘ldimi? Ortiqcha kaloriyani keyingi bir necha kunga yumshoq taqsimlang va streakni saqlang."
+    },
+    "secure": {
+      "title": "Maxfiy va xavfsiz",
+      "text": "Ilovani Face ID yoki barmoq izi bilan qulflang. Reklama yo‘q, ma’lumotlaringiz hech qachon sotilmaydi."
+    }
+  },
+  "how": {
+    "title": "Qanday ishlaydi",
+    "subtitle": "Taomni yozib qo‘yish taxminan besh soniya oladi.",
+    "snap": {
+      "title": "Suratga oling",
+      "text": "Likopchangizni suratga oling, shtrix-kodni skanerlang yoki galereyadan rasm tanlang."
+    },
+    "analyze": {
+      "title": "AI tahlil qiladi",
+      "text": "AI har bir taomni aniqlaydi, og‘irligini baholaydi va ozuqaviy qiymatini hisoblaydi."
+    },
+    "log": {
+      "title": "Kundalikka qo‘shing",
+      "text": "Kerak bo‘lsa porsiyani to‘g‘rilang va saqlang. Kunlik natijangiz darhol yangilanadi."
+    }
+  },
+  "ai": {
+    "badge": "AI yordamchilar",
+    "title": "Cho‘ntagingizdagi dietolog va oshpaz",
+    "subtitle": "CaloSnap nafaqat kaloriyani hisoblaydi, balki keyin nima yeyishni tanlashda ham yordam beradi.",
+    "chef": {
+      "title": "AI Oshpaz",
+      "text": "Muzlatgichni suratga oling yoki masalliqlarni yozing, maqsadingizga mos 3 ta sog‘lom retsept va har porsiyadagi kaloriyani oling."
+    },
+    "nutritionist": {
+      "title": "AI Dietolog",
+      "text": "Ovqatlanish haqida istalgan savolni bering, javob maqsadingiz, kunlik me’yoringiz va bugungi taomlaringizga qarab beriladi."
+    },
+    "health": {
+      "title": "Sog‘liq ogohlantirishlari",
+      "text": "Diabet, yuqori qon bosimi yoki xolesterin bo‘lsa, taomlar tekshiriladi va sizga mos kelmasa yumshoq ogohlantirish olasiz."
+    },
+    "disclaimer": "CaloSnap umumiy tavsiya beradi va tibbiy maslahat hisoblanmaydi. Doimo shifokoringiz ko‘rsatmalariga amal qiling."
+  },
+  "pro": {
+    "badge": "CaloSnap Pro",
+    "title": "AI imkoniyatlarini to‘liq oching",
+    "subtitle": "Asosiy imkoniyatlar bepul. Pro cheklovlarni olib tashlaydi va AI yordamchilarni qo‘shadi.",
+    "items": {
+      "scan": "Cheksiz AI skaneri va xalqaro shtrix-kodlar",
+      "multi": "Bir nechta taom yoki butun dasturxonni bitta kadrda tahlil qilish",
+      "chef": "AI Oshpaz: muzlatgichdagi mahsulotlardan sog‘lom retseptlar",
+      "chat": "Shaxsiy AI Dietolog bilan suhbat",
+      "health": "Diabet, qon bosimi va xolesterin bo‘yicha taom ogohlantirishlari",
+      "feast": "Ziyofat va bayram (cheat-day) muvozanatlash rejimi"
+    },
+    "trial": "3 kun bepul sinov",
+    "note": "Haftalik, oylik va yillik tariflar. Narxlar ilovada mahalliy valyutangizda ko‘rsatiladi. Istalgan vaqtda App Store yoki Google Play sozlamalarida bekor qilishingiz mumkin."
+  },
+  "faq": {
+    "title": "Ko‘p beriladigan savollar",
+    "accuracy": {
+      "q": "Kaloriya qanchalik aniq hisoblanadi?",
+      "a": "Ko‘pchilik kundalik taomlarda AI haqiqiy qiymatga yaqin natija beradi, lekin bu baribir taxmin. Saqlashdan oldin taomni yoki porsiya og‘irligini har doim to‘g‘rilashingiz mumkin."
+    },
+    "foods": {
+      "q": "Qanday taomlarni taniydi?",
+      "a": "Uy taomlari, milliy oshxona, fast-fud, ichimliklar va qadoqlangan mahsulotlar. Qadoqlangan mahsulotlar uchun shtrix-kod yoki yorliqni skanerlash eng aniq usul."
+    },
+    "privacy": {
+      "q": "Ma’lumotlarim xavfsizmi?",
+      "a": "Ma’lumotlaringiz faqat ilova ishlashi uchun ishlatiladi. Biz reklama ko‘rsatmaymiz va ma’lumot sotmaymiz. Akkaunt va barcha ma’lumotlarni istalgan vaqtda profil orqali o‘chirishingiz mumkin."
+    },
+    "free": {
+      "q": "CaloSnap bepulmi?",
+      "a": "Ha. Kundalik, maqsadlar, suv va vazn nazorati hamda kunlik AI skanerlar bepul. CaloSnap Pro cheksiz skanerlash va AI yordamchilarni qo‘shadi."
+    },
+    "cancel": {
+      "q": "Obunani qanday bekor qilaman?",
+      "a": "Obunalar App Store yoki Google Play tomonidan boshqariladi. Telefoningizdagi akkaunt obuna sozlamalarini ochib, o‘sha yerda bekor qiling."
+    },
+    "languages": {
+      "q": "Qaysi tillar qo‘llab-quvvatlanadi?",
+      "a": "O‘zbek, rus, ingliz, turk, qozoq, koreys, ispan, nemis va fransuz tillari."
+    }
+  },
+  "cta": {
+    "title": "Bugundan to‘g‘ri ovqatlanishni boshlang",
+    "subtitle": "CaloSnap’ni yuklab oling va birinchi taomingizni bir necha soniyada yozib qo‘ying."
+  },
+  "footer": {
+    "tagline": "Rasm orqali kaloriya hisoblovchi AI.",
+    "product": "Mahsulot",
+    "legal": "Huquqiy",
+    "privacy": "Maxfiylik siyosati",
+    "terms": "Foydalanish shartlari",
+    "deleteAccount": "Akkauntni o‘chirish",
+    "contact": "Aloqa",
+    "telegram": "Telegram orqali yozing",
+    "rights": "Barcha huquqlar himoyalangan."
+  },
+  "legal": {
+    "back": "Bosh sahifaga qaytish"
+  },
+  "notFound": {
+    "title": "Sahifa topilmadi",
+    "text": "Siz qidirayotgan sahifa mavjud emas yoki boshqa joyga ko‘chirilgan."
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "title": "CaloSnap: KI-Kalorienzähler per Foto",
+    "description": "Fotografiere dein Essen und die KI von CaloSnap zählt Kalorien, Protein, Kohlenhydrate und Fett in Sekunden. Ernährungstagebuch, Barcode-Scanner, KI-Koch und KI-Ernährungsberater in einer einfachen App."
+  },
+  "nav": {
+    "features": "Funktionen",
+    "how": "So funktioniert's",
+    "ai": "KI-Assistenten",
+    "pro": "Pro",
+    "faq": "FAQ",
+    "download": "Download",
+    "menu": "Menü",
+    "home": "Startseite"
+  },
+  "theme": {
+    "toggle": "Design wechseln",
+    "light": "Hell",
+    "dark": "Dunkel"
+  },
+  "lang": {
+    "label": "Sprache"
+  },
+  "hero": {
+    "badge": "Ernährungstracking mit KI",
+    "title": "Foto machen.",
+    "titleAccent": "Kalorien kennen.",
+    "subtitle": "Mach ein Foto von deinem Essen: Die KI von CaloSnap erkennt die Lebensmittel, schätzt die Portion und zählt Kalorien und Makros in Sekunden. Kein Suchen, kein Raten.",
+    "note": "Kostenlos laden. In 9 Sprachen verfügbar."
+  },
+  "store": {
+    "downloadOn": "Laden im",
+    "getItOn": "Jetzt bei",
+    "soon": "Demnächst"
+  },
+  "mockup": {
+    "balance": "Kalorienbilanz heute",
+    "remaining": "Übrig",
+    "consumed": "Gegessen",
+    "goalKcal": "Ziel (kcal)",
+    "protein": "Eiweiß",
+    "carbs": "Kohlenhydrate",
+    "fat": "Fett",
+    "aiTools": "KI-Assistenten",
+    "chef": "KI-Koch",
+    "chefSub": "Rezepte aus dem, was du hast",
+    "chat": "KI-Ernährungsberater",
+    "chatSub": "Ernährungstipps",
+    "water": "Wasser",
+    "addWater": "+250 ml",
+    "todaysMeals": "Heutige Mahlzeiten",
+    "seeAll": "Alle",
+    "breakfast": "🍳 Frühstück",
+    "lunch": "🍲 Mittagessen",
+    "tabHome": "Start",
+    "tabDiary": "Tagebuch",
+    "tabScan": "Scannen",
+    "tabProfile": "Profil",
+    "meal1": "Haferbrei mit Beeren",
+    "meal2": "Hähnchensalat"
+  },
+  "features": {
+    "title": "Alles für eine smartere Ernährung",
+    "subtitle": "Eine App, um Essen zu erfassen, Fortschritte zu verfolgen und dein Ziel zu erreichen – ganz ohne lästigen Aufwand.",
+    "scan": {
+      "title": "KI-Fotoscanner",
+      "text": "Erkennt Gerichte, mehrere Lebensmittel auf einem Teller und Portionsgrößen und zählt dann Kalorien, Protein, Kohlenhydrate und Fett."
+    },
+    "barcode": {
+      "title": "Barcodes und Etiketten",
+      "text": "Scanne den Barcode eines Produkts oder fotografiere die Nährwerttabelle – die Werte werden automatisch eingetragen."
+    },
+    "diary": {
+      "title": "Tagebuch, Wasser und Gewicht",
+      "text": "Sieh alle Mahlzeiten des Tages, erfasse Wasser mit einem Tippen und verfolge dein Gewicht in einem übersichtlichen Diagramm."
+    },
+    "goal": {
+      "title": "Dein persönliches Kalorienziel",
+      "text": "Tagesziel und Makros werden aus Alter, Größe, Gewicht, Aktivität und deinem Ziel berechnet."
+    },
+    "feast": {
+      "title": "Festmodus",
+      "text": "Hochzeit oder Festessen? Verteile die zusätzlichen Kalorien sanft auf die nächsten Tage und halte deine Serie."
+    },
+    "secure": {
+      "title": "Privat und sicher",
+      "text": "Sperre die App mit Face ID oder Fingerabdruck. Keine Werbung, und deine Daten werden niemals verkauft."
+    }
+  },
+  "how": {
+    "title": "So funktioniert's",
+    "subtitle": "Eine Mahlzeit zu erfassen dauert etwa fünf Sekunden.",
+    "snap": {
+      "title": "Fotografieren",
+      "text": "Mach ein Foto von deinem Teller, scanne einen Barcode oder wähle ein Bild aus deiner Galerie."
+    },
+    "analyze": {
+      "title": "KI analysiert",
+      "text": "Die KI erkennt jedes Lebensmittel, schätzt das Gewicht und berechnet die Nährwerte."
+    },
+    "log": {
+      "title": "Ins Tagebuch",
+      "text": "Passe die Portion bei Bedarf an und speichere. Dein Tagesfortschritt wird sofort aktualisiert."
+    }
+  },
+  "ai": {
+    "badge": "KI-Assistenten",
+    "title": "Ernährungsberater und Koch in deiner Tasche",
+    "subtitle": "CaloSnap zählt nicht nur Kalorien, sondern hilft dir auch zu entscheiden, was du als Nächstes isst.",
+    "chef": {
+      "title": "KI-Koch",
+      "text": "Fotografiere deinen Kühlschrank oder liste deine Zutaten auf und erhalte 3 gesunde Rezepte passend zu deinem Ziel – mit Kalorien pro Portion."
+    },
+    "nutritionist": {
+      "title": "KI-Ernährungsberater",
+      "text": "Stell jede Frage zu deiner Ernährung und erhalte Antworten auf Basis deines Ziels, deines Tagesbedarfs und deiner heutigen Mahlzeiten."
+    },
+    "health": {
+      "title": "Gesundheitshinweise",
+      "text": "Bei Diabetes, Bluthochdruck oder hohem Cholesterin werden Mahlzeiten geprüft und du bekommst einen sanften Hinweis, wenn etwas nicht zu dir passt."
+    },
+    "disclaimer": "CaloSnap bietet allgemeine Orientierung und ersetzt keine medizinische Beratung. Befolge immer die Anweisungen deines Arztes."
+  },
+  "pro": {
+    "badge": "CaloSnap Pro",
+    "title": "Nutze die volle Kraft der KI",
+    "subtitle": "Die Grundfunktionen sind kostenlos. Pro hebt alle Limits auf und schaltet die KI-Assistenten frei.",
+    "items": {
+      "scan": "Unbegrenzte KI-Scans und internationale Barcodes",
+      "multi": "Mehrere Gerichte oder ein ganzer Tisch auf einem Foto",
+      "chef": "KI-Koch: gesunde Rezepte aus deinem Kühlschrank",
+      "chat": "Persönlicher Chat mit dem KI-Ernährungsberater",
+      "health": "Hinweise bei Diabetes, Bluthochdruck und Cholesterin",
+      "feast": "Ausgleichsmodus für Festtage und Cheat Days"
+    },
+    "trial": "3 Tage kostenlos testen",
+    "note": "Wochen-, Monats- und Jahresabos. Die Preise werden in der App in deiner Landeswährung angezeigt. Jederzeit kündbar in den Einstellungen von App Store oder Google Play."
+  },
+  "faq": {
+    "title": "Häufige Fragen",
+    "accuracy": {
+      "q": "Wie genau ist die Kalorienschätzung?",
+      "a": "Bei den meisten Alltagsgerichten liegt die KI nah an den echten Werten, es bleibt aber eine Schätzung. Du kannst Lebensmittel oder Portionsgewicht vor dem Speichern jederzeit korrigieren."
+    },
+    "foods": {
+      "q": "Welche Lebensmittel werden erkannt?",
+      "a": "Selbstgekochtes, landestypische Küche, Fast Food, Getränke und verpackte Produkte. Bei verpackten Lebensmitteln ist ein Barcode- oder Etikettenscan am genauesten."
+    },
+    "privacy": {
+      "q": "Sind meine Daten sicher?",
+      "a": "Deine Daten werden nur für den Betrieb der App genutzt. Wir zeigen keine Werbung, verkaufen keine Daten, und du kannst dein Konto samt aller Daten jederzeit in deinem Profil löschen."
+    },
+    "free": {
+      "q": "Ist CaloSnap kostenlos?",
+      "a": "Ja. Tagebuch, Ziele, Wasser- und Gewichtstracking sowie tägliche KI-Scans sind kostenlos. CaloSnap Pro bietet unbegrenzte Scans und die KI-Assistenten."
+    },
+    "cancel": {
+      "q": "Wie kündige ich mein Abo?",
+      "a": "Abos werden über den App Store oder Google Play verwaltet. Öffne auf deinem Handy die Abo-Einstellungen deines Kontos und kündige dort."
+    },
+    "languages": {
+      "q": "Welche Sprachen werden unterstützt?",
+      "a": "Usbekisch, Russisch, Englisch, Türkisch, Kasachisch, Koreanisch, Spanisch, Deutsch und Französisch."
+    }
+  },
+  "cta": {
+    "title": "Starte heute mit smarter Ernährung",
+    "subtitle": "Lade CaloSnap herunter und erfasse deine erste Mahlzeit in Sekunden."
+  },
+  "footer": {
+    "tagline": "KI-Kalorienzähler per Foto.",
+    "product": "Produkt",
+    "legal": "Rechtliches",
+    "privacy": "Datenschutzerklärung",
+    "terms": "Nutzungsbedingungen",
+    "deleteAccount": "Konto löschen",
+    "contact": "Kontakt",
+    "telegram": "Schreib uns auf Telegram",
+    "rights": "Alle Rechte vorbehalten."
+  },
+  "legal": {
+    "back": "Zurück zur Startseite"
+  },
+  "notFound": {
+    "title": "Seite nicht gefunden",
+    "text": "Die gesuchte Seite existiert nicht oder wurde verschoben."
+  }
+}

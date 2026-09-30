@@ -1,0 +1,5 @@
+{
+  "NSCameraUsageDescription": "CaloSnap, yemeklerin fotoğrafını çekmek ve ürün barkodlarını ve etiketlerini taramak için kameranızı kullanır.",
+  "NSPhotoLibraryUsageDescription": "CaloSnap, galerinizden yemek fotoğrafı, ürün etiketi veya profil fotoğrafı seçmenizi sağlar.",
+  "NSFaceIDUsageDescription": "CaloSnap, uygulamanın kilidini güvenle açmak için Face ID kullanır."
+}

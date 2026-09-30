@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { FontSize, Radius, Spacing } from '../theme/spacing';
+import { FontSize, Radius, Spacing, androidTextFix } from '../theme/spacing';
 
 interface MacroBarsProps {
   protein: number;
@@ -39,7 +39,7 @@ function MacroCol({
     <View style={styles.col}>
       <Text style={[styles.val, { color: textColor }]}>{Math.round(value)}g</Text>
       <View style={[styles.track, { backgroundColor: trackColor }]}>
-        <View style={[styles.fill, { width: `${pct}%`, backgroundColor: color }]} />
+        <View style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: color }]} />
       </View>
       <Text style={[styles.label, { color: mutedColor }]}>{label}</Text>
     </View>
@@ -83,21 +83,23 @@ export function MacroBars(props: MacroBarsProps) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    gap: Spacing.lg,
   },
   col: {
     flex: 1,
-    gap: 6,
+    marginHorizontal: Spacing.sm / 2,
   },
   val: {
     fontSize: FontSize.md,
     fontWeight: '700',
     letterSpacing: -0.3,
+    marginBottom: 6,
+    ...androidTextFix,
   },
   track: {
     height: 6,
     borderRadius: Radius.full,
     overflow: 'hidden',
+    marginBottom: 6,
   },
   fill: {
     height: '100%',
@@ -106,5 +108,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: FontSize.xs,
     fontWeight: '500',
+    ...androidTextFix,
   },
 });

@@ -1,0 +1,5 @@
+{
+  "NSCameraUsageDescription": "CaloSnap verwendet die Kamera, um Mahlzeiten zu fotografieren und Barcodes sowie Nährwerttabellen zu scannen.",
+  "NSPhotoLibraryUsageDescription": "Mit CaloSnap kannst du ein Essensfoto, eine Nährwerttabelle oder ein Profilbild aus deiner Mediathek auswählen.",
+  "NSFaceIDUsageDescription": "CaloSnap verwendet Face ID, um die App sicher zu entsperren."
+}

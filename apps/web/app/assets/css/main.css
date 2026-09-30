@@ -1,0 +1,96 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR',
+    sans-serif;
+
+  --color-brand-50: #edfaf4;
+  --color-brand-100: #d3f4e4;
+  --color-brand-200: #a7e8ca;
+  --color-brand-300: #6fd6a8;
+  --color-brand-400: #22c58b;
+  --color-brand-500: #16a86b;
+  --color-brand-600: #1a9b6c;
+  --color-brand-700: #0f7a55;
+  --color-brand-800: #0c5f43;
+  --color-brand-900: #0a4a35;
+  --color-brand-950: #062e21;
+
+  --animate-fade-up: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-950;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-500;
+  }
+}
+
+@utility brand-gradient {
+  background-image: linear-gradient(135deg, #22c58b 0%, #16a86b 50%, #0f7a55 100%);
+}
+
+@utility text-gradient {
+  background-image: linear-gradient(135deg, #22c58b 0%, #16a86b 45%, #0f7a55 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility container-page {
+  @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+}
+
+.reveal-pending {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.reveal-done {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

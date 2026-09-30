@@ -10,8 +10,10 @@ import {
 import { useRouter } from 'expo-router';
 import { Search, X, Check, Utensils } from 'lucide-react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppStore } from '../../src/store/useAppStore';
+import { useAppStore, usePalette, useStrings } from '../../src/store/useAppStore';
+import { foodName } from '../../src/shared/i18n/languages';
 import { useScanStore } from '../../src/store/useScanStore';
+import { useToastStore } from '../../src/store/useToastStore';
 import { ApiClient } from '../../src/shared/api/api-client';
 import { Food } from '@eda/types';
 import { FadeIn, FoodListSkeleton } from '../../src/shared/ui/Skeleton';
@@ -19,16 +21,19 @@ import { FadeIn, FoodListSkeleton } from '../../src/shared/ui/Skeleton';
 export default function EditFoodScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { theme, t } = useAppStore();
-  const { swapItemFood, selectedItemIndex } = useScanStore();
+  const language = useAppStore((s) => s.language);
+  const swapItemFood = useScanStore((s) => s.swapItemFood);
+  const selectedItemIndex = useScanStore((s) => s.selectedItemIndex);
+  const showToast = useToastStore((s) => s.showToast);
 
-  const currentTheme = theme();
-  const strings = t();
+  const currentTheme = usePalette();
+  const strings = useStrings();
 
   const [query, setQuery] = useState('');
   const [foods, setFoods] = useState<Food[]>([]);
   const [loading, setLoading] = useState(true);
   const searchSeq = useRef(0);
+  const selectedRef = useRef(false);
 
   const loadFoods = async (searchQuery: string) => {
     const seq = ++searchSeq.current;
@@ -37,9 +42,9 @@ export default function EditFoodScreen() {
       const results = await ApiClient.searchFoods(searchQuery);
       if (seq !== searchSeq.current) return;
       setFoods(results);
-    } catch (e) {
+    } catch (e: any) {
       if (seq !== searchSeq.current) return;
-      console.log('Food search error:', e);
+      if (e?.message) showToast(e.message, 'error');
     } finally {
       if (seq === searchSeq.current) setLoading(false);
     }
@@ -51,6 +56,8 @@ export default function EditFoodScreen() {
   }, [query]);
 
   const handleSelectFood = (food: Food) => {
+    if (selectedRef.current) return;
+    selectedRef.current = true;
     swapItemFood(selectedItemIndex, food);
     router.back();
   };
@@ -58,7 +65,7 @@ export default function EditFoodScreen() {
   const showSkeleton = loading && foods.length === 0;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: currentTheme.background, paddingTop: insets.top }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: currentTheme.background }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: currentTheme.text }]}>{strings.changeFood}</Text>
@@ -75,8 +82,9 @@ export default function EditFoodScreen() {
         <Search color={currentTheme.textMuted} size={18} />
         <TextInput
           style={[styles.input, { color: currentTheme.text }]}
-          placeholder="Qidiruv (masalan: Manti, Somsa, Osh)..."
+          placeholder={strings.searchFoodPlaceholder}
           placeholderTextColor={currentTheme.textMuted}
+          textAlignVertical="center"
           value={query}
           onChangeText={setQuery}
           autoFocus
@@ -99,7 +107,7 @@ export default function EditFoodScreen() {
             ListEmptyComponent={
               !loading ? (
                 <Text style={{ color: currentTheme.textMuted, textAlign: 'center', marginTop: 24 }}>
-                  Natija topilmadi
+                  {strings.noResults}
                 </Text>
               ) : null
             }
@@ -121,7 +129,7 @@ export default function EditFoodScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.foodItemTitle, { color: currentTheme.text }]}>
-                    {item.nameUz || item.name}
+                    {foodName(item, language)}
                   </Text>
                   <Text style={[styles.foodItemSub, { color: currentTheme.textMuted }]}>
                     100g: {item.nutrition.calories} kcal • {strings.protein}: {item.nutrition.protein}g • {strings.carbs}: {item.nutrition.carbs}g • {strings.fat}: {item.nutrition.fat}g
@@ -166,7 +174,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    height: 48,
     borderWidth: 1,
     marginBottom: 14,
     gap: 8,
@@ -174,6 +182,8 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 14,
+    paddingVertical: 0,
+    includeFontPadding: false,
   },
   listContent: {
     gap: 8,

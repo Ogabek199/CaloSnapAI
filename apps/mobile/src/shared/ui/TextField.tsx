@@ -5,11 +5,10 @@ import {
   TextInput,
   StyleSheet,
   TextInputProps,
-  Platform,
   Pressable,
 } from 'react-native';
 import { usePalette } from '../../store/useAppStore';
-import { Radius, FontSize, Spacing } from '../theme/spacing';
+import { Radius, FontSize, Spacing, androidTextFix } from '../theme/spacing';
 
 interface TextFieldProps extends TextInputProps {
   label?: string;
@@ -51,7 +50,7 @@ export function TextField({
           style={[
             styles.input,
             { color: t.text },
-            Platform.OS === 'android' ? { includeFontPadding: false } as any : null,
+            androidTextFix,
             style,
           ]}
           textAlignVertical="center"
@@ -99,7 +98,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.md,
     fontWeight: '500',
-    paddingVertical: Platform.OS === 'android' ? 0 : 0,
+    paddingVertical: 0,
     margin: 0,
   },
   error: {

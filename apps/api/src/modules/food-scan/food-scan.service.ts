@@ -1,10 +1,18 @@
-import { Injectable, NotFoundException, UnprocessableEntityException, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+  Logger,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
-import * as fs from 'fs';
-import * as path from 'path';
 import { PrismaService } from '../../database/prisma.service';
+import { StorageService } from '../storage/storage.service';
+import { hasActivePremium } from '../subscription/subscription.service';
 import { AIService } from '../ai/ai.service';
+import { DetectedFoodItem } from '../ai/ai.types';
 import { FoodService } from '../food/food.service';
 import { NutritionService } from '../nutrition/nutrition.service';
 import { FoodScanResult, CalculatedNutrition, UpdateScanItemDto } from '@eda/types';
@@ -14,7 +22,6 @@ const FREE_DAILY_SCAN_LIMIT = 30;
 @Injectable()
 export class FoodScanService {
   private readonly logger = new Logger(FoodScanService.name);
-  private readonly uploadsDir: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -22,40 +29,54 @@ export class FoodScanService {
     private readonly foodService: FoodService,
     private readonly nutritionService: NutritionService,
     private readonly configService: ConfigService,
-  ) {
-    this.uploadsDir = path.join(process.cwd(), 'uploads', 'scans');
-    try {
-      fs.mkdirSync(this.uploadsDir, { recursive: true });
-    } catch (e) {}
-  }
+    private readonly storage: StorageService,
+  ) {}
 
-  private async assertScanQuota(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (user?.isPremium) return;
-
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const count = await this.prisma.foodScan.count({
-      where: {
-        userId,
-        createdAt: { gte: start },
-        status: 'COMPLETED',
-        items: { some: {} },
-      },
-    });
+  /**
+   * Every attempt (including failed / non-food ones) counts toward the daily quota,
+   * because each one costs a Gemini call. The advisory lock serializes concurrent
+   * requests from the same user so they cannot all pass the check at once.
+   */
+  private async reserveScan(userId: string): Promise<string> {
     const limit = parseInt(this.configService.get('SCAN_DAILY_LIMIT') || `${FREE_DAILY_SCAN_LIMIT}`, 10);
-    if (count >= limit) {
-      throw new BadRequestException(
-        `Kunlik skaner limiti tugadi (${limit}). Ertaga qayta urinib ko‘ring yoki qo‘lda taom qo‘shing.`,
-      );
-    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { isPremium: true, premiumUntil: true },
+      });
+      if (!user) throw new BadRequestException('Foydalanuvchi topilmadi');
+
+      if (!hasActivePremium(user)) {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const count = await tx.foodScan.count({
+          where: { userId, createdAt: { gte: start } },
+        });
+        if (count >= limit) {
+          throw new ForbiddenException({
+            statusCode: 403,
+            code: 'SCAN_LIMIT_REACHED',
+            limit,
+            message: `Kunlik skaner limiti tugadi (${limit}). Ertaga qayta urinib ko‘ring yoki qo‘lda taom qo‘shing.`,
+          });
+        }
+      }
+
+      const scan = await tx.foodScan.create({
+        data: { userId, imageUrl: '', status: 'PROCESSING' },
+        select: { id: true },
+      });
+      return scan.id;
+    });
   }
 
-  private async persistImage(buffer: Buffer): Promise<string> {
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-    const fullPath = path.join(this.uploadsDir, filename);
-    await fs.promises.writeFile(fullPath, buffer);
-    return `/uploads/scans/${filename}`;
+  private async markScanFailed(scanId: string, rawAiText?: string) {
+    await this.prisma.foodScan
+      .update({ where: { id: scanId }, data: { status: 'FAILED', rawAiText } })
+      .catch((e) => this.logger.warn(`Failed to mark scan ${scanId} as FAILED: ${e?.message}`));
   }
 
   async processFoodImage(
@@ -66,7 +87,7 @@ export class FoodScanService {
     if (!userId) {
       throw new BadRequestException('Autentifikatsiya talab qilinadi');
     }
-    await this.assertScanQuota(userId);
+    const scanId = await this.reserveScan(userId);
 
     let processedBuffer = fileBuffer;
     let finalMime = mimeType;
@@ -85,33 +106,74 @@ export class FoodScanService {
     }
 
     const base64Image = processedBuffer.toString('base64');
-    let storedUrl = `data:${finalMime};base64,${base64Image.substring(0, 80)}...`;
-    try {
-      storedUrl = await this.persistImage(processedBuffer);
-    } catch (e: any) {
-      this.logger.warn(`Image disk save failed: ${e?.message}`);
-    }
 
-    const aiResult = await this.aiService.analyzeImage(base64Image, finalMime);
+    let aiResult: Awaited<ReturnType<AIService['analyzeImage']>>;
+    try {
+      aiResult = await this.aiService.analyzeImage(base64Image, finalMime);
+    } catch (e) {
+      await this.markScanFailed(scanId);
+      throw e;
+    }
 
     if (!aiResult.isFood || !aiResult.items || aiResult.items.length === 0) {
-      throw new UnprocessableEntityException(
-        aiResult.rejectionReason || 'Rasmda taom yoki ichimlik aniqlanmadi. Iltimos, haqiqiy ovqat rasmini yuklang.',
-      );
+      await this.markScanFailed(scanId, aiResult.rawText || '');
+      throw new UnprocessableEntityException({
+        statusCode: 422,
+        code: 'NOT_FOOD',
+        message:
+          aiResult.rejectionReason || 'Rasmda taom yoki ichimlik aniqlanmadi. Iltimos, haqiqiy ovqat rasmini yuklang.',
+      });
     }
 
-    const scan = await this.prisma.foodScan.create({
+    let storedUrl = '';
+    if (finalMime === 'image/jpeg') {
+      try {
+        storedUrl = await this.storage.saveJpeg(processedBuffer, 'scans');
+      } catch (e: any) {
+        this.logger.warn(`Scan image upload failed: ${e?.message}`);
+      }
+    }
+
+    let calculatedItems: FoodScanResult['items'];
+    try {
+      calculatedItems = await this.createScanItems(scanId, aiResult.items);
+    } catch (e) {
+      await this.markScanFailed(scanId, aiResult.rawText || '');
+      throw e;
+    }
+
+    if (calculatedItems.length === 0) {
+      await this.markScanFailed(scanId, aiResult.rawText || '');
+      throw new UnprocessableEntityException('Taom aniqlandi, lekin bazada mos ovqat qiymati topilmadi.');
+    }
+
+    const scan = await this.prisma.foodScan.update({
+      where: { id: scanId },
       data: {
-        userId,
         imageUrl: storedUrl,
         status: 'COMPLETED',
         rawAiText: aiResult.rawText || '',
       },
     });
 
-    const calculatedItems = [];
+    const totalNutrition: CalculatedNutrition = this.nutritionService.aggregateNutrition(
+      calculatedItems.map((i) => i.nutrition),
+    );
 
-    for (const item of aiResult.items) {
+    return {
+      id: scan.id,
+      imageUrl: scan.imageUrl,
+      status: scan.status as any,
+      items: calculatedItems,
+      totalNutrition,
+      createdAt: scan.createdAt.toISOString(),
+    };
+  }
+
+  private async createScanItems(scanId: string, items: DetectedFoodItem[]): Promise<FoodScanResult['items']> {
+    const calculatedItems: FoodScanResult['items'] = [];
+
+    for (const item of items) {
       const matchedFood = await this.foodService.matchOrCreateDetectedFood(item);
       if (!matchedFood || !matchedFood.nutrition) continue;
 
@@ -126,7 +188,7 @@ export class FoodScanService {
 
       const scanItem = await this.prisma.foodScanItem.create({
         data: {
-          scanId: scan.id,
+          scanId,
           foodId: matchedFood.id,
           weightGrams: weight,
           confidence: item.confidence || 0.9,
@@ -175,29 +237,10 @@ export class FoodScanService {
       });
     }
 
-    if (calculatedItems.length === 0) {
-      await this.prisma.foodScan.update({
-        where: { id: scan.id },
-        data: { status: 'FAILED' },
-      });
-      throw new UnprocessableEntityException('Taom aniqlandi, lekin bazada mos ovqat qiymati topilmadi.');
-    }
-
-    const totalNutrition: CalculatedNutrition = this.nutritionService.aggregateNutrition(
-      calculatedItems.map((i) => i.nutrition),
-    );
-
-    return {
-      id: scan.id,
-      imageUrl: scan.imageUrl,
-      status: scan.status as any,
-      items: calculatedItems,
-      totalNutrition,
-      createdAt: scan.createdAt.toISOString(),
-    };
+    return calculatedItems;
   }
 
-  async getScanById(id: string, userId?: string): Promise<FoodScanResult> {
+  async getScanById(id: string, userId: string): Promise<FoodScanResult> {
     const scan = await this.prisma.foodScan.findUnique({
       where: { id },
       include: {
@@ -210,10 +253,8 @@ export class FoodScanService {
     if (!scan) {
       throw new NotFoundException(`Skanerlash natijasi topilmadi: ${id}`);
     }
-    if (userId !== undefined) {
-      if (!scan.userId || scan.userId !== userId) {
-        throw new ForbiddenException('Bu skaner sizga tegishli emas');
-      }
+    if (!userId || !scan.userId || scan.userId !== userId) {
+      throw new ForbiddenException('Bu skaner sizga tegishli emas');
     }
 
     const items = scan.items.map((item) => ({
@@ -229,11 +270,11 @@ export class FoodScanService {
         imageUrl: item.food.imageUrl,
         defaultServingGrams: item.food.defaultServingGrams,
         nutrition: {
-          calories: item.food.nutrition.caloriesPer100g,
-          protein: item.food.nutrition.proteinPer100g,
-          carbs: item.food.nutrition.carbsPer100g,
-          fat: item.food.nutrition.fatPer100g,
-          fiber: item.food.nutrition.fiberPer100g,
+          calories: item.food.nutrition?.caloriesPer100g ?? 0,
+          protein: item.food.nutrition?.proteinPer100g ?? 0,
+          carbs: item.food.nutrition?.carbsPer100g ?? 0,
+          fat: item.food.nutrition?.fatPer100g ?? 0,
+          fiber: item.food.nutrition?.fiberPer100g ?? 0,
         },
       },
       weightGrams: item.weightGrams,
@@ -264,14 +305,12 @@ export class FoodScanService {
     scanId: string,
     itemId: string,
     dto: UpdateScanItemDto,
-    userId?: string,
+    userId: string,
   ): Promise<FoodScanResult> {
-    if (userId) {
-      const scan = await this.prisma.foodScan.findUnique({ where: { id: scanId } });
-      if (!scan) throw new NotFoundException('Skanerlash topilmadi');
-      if (!scan.userId || scan.userId !== userId) {
-        throw new ForbiddenException('Bu skaner sizga tegishli emas');
-      }
+    const scan = await this.prisma.foodScan.findUnique({ where: { id: scanId } });
+    if (!scan) throw new NotFoundException('Skanerlash topilmadi');
+    if (!userId || !scan.userId || scan.userId !== userId) {
+      throw new ForbiddenException('Bu skaner sizga tegishli emas');
     }
 
     const item = await this.prisma.foodScanItem.findUnique({
@@ -286,7 +325,10 @@ export class FoodScanService {
     let foodToUse = item.food;
     if (dto.foodId && dto.foodId !== item.foodId) {
       const newFood = await this.foodService.findById(dto.foodId);
-      if (newFood) foodToUse = newFood as any;
+      if (!newFood || !newFood.nutrition) {
+        throw new NotFoundException('Tanlangan taom bazada topilmadi');
+      }
+      foodToUse = newFood;
     }
 
     const n = foodToUse.nutrition || {};

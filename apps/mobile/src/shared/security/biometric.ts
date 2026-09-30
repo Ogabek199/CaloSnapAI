@@ -33,13 +33,22 @@ export async function getBiometricAvailability(): Promise<BiometricAvailability>
   }
 }
 
+/** False when the device has neither biometrics nor a passcode, i.e. authentication can never succeed. */
+export async function hasDeviceAuthentication(): Promise<boolean> {
+  try {
+    const level = await LocalAuthentication.getEnrolledLevelAsync();
+    return level !== LocalAuthentication.SecurityLevel.NONE;
+  } catch {
+    return true;
+  }
+}
+
 export async function authenticateWithBiometrics(promptMessage: string): Promise<boolean> {
   try {
+    // Cancel / fallback labels are left to the OS so they follow the system language.
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage,
-      cancelLabel: 'Cancel',
       disableDeviceFallback: false,
-      fallbackLabel: 'Passcode',
     });
     return result.success === true;
   } catch {

@@ -1,6 +1,7 @@
+import { memo } from 'react';
 import Svg, { Circle } from 'react-native-svg';
 import { View, Text, StyleSheet } from 'react-native';
-import { FontSize } from '../theme/spacing';
+import { FontSize, androidTextFix } from '../theme/spacing';
 
 interface CalorieRingProps {
   progress: number;
@@ -15,7 +16,7 @@ interface CalorieRingProps {
   labelColor: string;
 }
 
-export function CalorieRing({
+export const CalorieRing = memo(function CalorieRing({
   progress,
   size = 140,
   strokeWidth = 10,
@@ -54,8 +55,7 @@ export function CalorieRing({
           strokeLinecap="round"
           strokeDasharray={`${circumference} ${circumference}`}
           strokeDashoffset={offset}
-          rotation="-90"
-          origin={`${center}, ${center}`}
+          transform={`rotate(-90 ${center} ${center})`}
         />
       </Svg>
       <Text style={[styles.label, { color: labelColor }]}>{centerLabel}</Text>
@@ -63,22 +63,25 @@ export function CalorieRing({
       {centerSub ? <Text style={[styles.sub, { color: labelColor }]}>{centerSub}</Text> : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   label: {
     fontSize: FontSize.xs,
     fontWeight: '500',
     marginBottom: 2,
+    ...androidTextFix,
   },
   value: {
     fontSize: FontSize.xxl,
     fontWeight: '700',
     letterSpacing: -0.8,
+    ...androidTextFix,
   },
   sub: {
     fontSize: FontSize.xs,
     fontWeight: '500',
     marginTop: 2,
+    ...androidTextFix,
   },
 });

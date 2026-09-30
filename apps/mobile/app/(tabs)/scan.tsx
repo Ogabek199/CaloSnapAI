@@ -1,21 +1,26 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
+  InteractionManager,
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  Linking,
+  LayoutChangeEvent,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useIsFocused, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { Image as ImageIcon, Zap, Sparkles, X } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { Image as ImageIcon, Zap, Sparkles, X, Barcode } from 'lucide-react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppStore } from '../../src/store/useAppStore';
+import { useAppStore, usePalette, useStrings } from '../../src/store/useAppStore';
 import { useScanStore } from '../../src/store/useScanStore';
 import { useToastStore } from '../../src/store/useToastStore';
-import { ApiClient } from '../../src/shared/api/api-client';
+import { ApiClient, ApiError } from '../../src/shared/api/api-client';
 import { stripBottomWatermark } from '../../src/shared/media/strip-bottom-watermark';
 
 const { width, height } = Dimensions.get('window');
@@ -25,67 +30,126 @@ export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
-  const { setImageUri, setScanResult, setAnalyzing, resetAnalysisCancel } = useScanStore();
-  const { showToast } = useToastStore();
-  const { t, theme } = useAppStore();
-  const currentTheme = theme();
-  const strings = t();
+  const setImageUri = useScanStore((s) => s.setImageUri);
+  const setScanResult = useScanStore((s) => s.setScanResult);
+  const setAnalyzing = useScanStore((s) => s.setAnalyzing);
+  const resetAnalysisCancel = useScanStore((s) => s.resetAnalysisCancel);
+  const scanMode = useScanStore((s) => s.scanMode);
+  const setScanMode = useScanStore((s) => s.setScanMode);
+  const showToast = useToastStore((s) => s.showToast);
+  const isPremium = useAppStore((s) => !!s.user.isPremium);
+  const currentTheme = usePalette();
+  const strings = useStrings();
+  const isFocused = useIsFocused();
 
   const [flash, setFlash] = useState<boolean>(false);
+  // Mounting the preview mid-transition leaves it sized to the animating frame (half-black), so wait for it to settle.
+  const [cameraSession, setCameraSession] = useState(0);
+  useEffect(() => {
+    if (!isFocused) {
+      setCameraSession(0);
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const task = InteractionManager.runAfterInteractions(() => {
+      timer = setTimeout(() => setCameraSession(Date.now()), 120);
+    });
+    return () => {
+      task.cancel();
+      if (timer) clearTimeout(timer);
+    };
+  }, [isFocused]);
+  // Android's preview surface keeps its first size, so the camera is remounted if the screen height changes.
+  const [layoutH, setLayoutH] = useState(0);
+  const onContainerLayout = (e: LayoutChangeEvent) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    if (Math.abs(h - layoutH) > 1) setLayoutH(h);
+  };
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const processingRef = useRef(false);
+
+  const finishProcessing = () => {
+    processingRef.current = false;
+    setIsProcessing(false);
+  };
 
   const startAnalysis = async (uri: string) => {
     setIsProcessing(true);
     resetAnalysisCancel();
-    // Remove camera date/time stamp often burned into the bottom of photos
-    const cleanUri = await stripBottomWatermark(uri);
-    setImageUri(cleanUri);
-    setAnalyzing(true);
-    router.push('/scan/analyzing');
+    let navigatedToAnalyzing = false;
 
     try {
+      // Remove camera date/time stamp often burned into the bottom of photos
+      const cleanUri = await stripBottomWatermark(uri);
+      setImageUri(cleanUri);
+      setAnalyzing(true);
+      router.push('/scan/analyzing');
+      navigatedToAnalyzing = true;
+
       const result = await ApiClient.scanFood(cleanUri);
-      const cancelled = useScanStore.getState().analysisCancelled;
-      if (cancelled) {
+      if (useScanStore.getState().analysisCancelled) {
         setAnalyzing(false);
-        setIsProcessing(false);
+        finishProcessing();
         return;
       }
       setScanResult(result);
+      useScanStore.getState().setSelectedItemIndex(0);
       setAnalyzing(false);
-      setIsProcessing(false);
+      finishProcessing();
       router.replace('/scan/result');
     } catch (err: any) {
       const cancelled = useScanStore.getState().analysisCancelled;
       setAnalyzing(false);
-      setIsProcessing(false);
+      finishProcessing();
       if (cancelled) return;
 
-      router.back();
+      if (navigatedToAnalyzing) router.back();
 
-      const errMsg = err?.message || '';
-      const goManual = () => router.push('/diary/add');
+      let toastMessage = strings.scanFailedHint;
+      let toastType: 'warning' | 'error' = 'warning';
+      let next: 'manual' | 'paywall' | null = 'manual';
 
-      if (errMsg.includes('xira') || errMsg.includes('aniqlanmadi') || errMsg.includes('topilmadi')) {
-        showToast(strings.scanFailedHint || 'Skaner ishlamadi — taomni qo‘lda qo‘shing', 'warning');
-        setTimeout(goManual, 600);
-      } else if (errMsg.includes('Internet') || errMsg.includes('tarmoq') || errMsg.includes('Network') || errMsg.includes('Failed to fetch')) {
-        showToast(
-          'Internet aloqasida uzilish. Iltimos, tarmoqni tekshirib qaytadan urinib ko‘ring.',
-          'error',
-        );
-      } else if (errMsg.includes('limit')) {
-        showToast(errMsg, 'warning');
-        setTimeout(goManual, 500);
-      } else {
-        showToast(errMsg || strings.scanFailedHint || 'Skaner ishlamadi', 'warning');
-        setTimeout(goManual, 600);
+      if (err instanceof ApiError) {
+        const errCode = (err.data as { code?: string } | null)?.code;
+        if (errCode === 'SCAN_LIMIT_REACHED') {
+          toastMessage = err.message;
+          next = isPremium ? 'manual' : 'paywall';
+        } else if (err.code === 'network' || err.code === 'timeout') {
+          toastMessage = err.message;
+          toastType = 'error';
+          next = null;
+        } else if (err.code === 'unauthorized') {
+          // A 401 has already logged out and shown the session-expired toast in api-client.
+          if (err.status === 401) return;
+          toastMessage = err.message;
+          toastType = 'error';
+          next = null;
+        } else if (err.code === 'payload_too_large' || err.code === 'rate_limited') {
+          toastMessage = err.message;
+          toastType = 'error';
+          next = null;
+        } else if (err.status === 503) {
+          toastMessage = strings.errAiUnavailable;
+        } else if (err.code === 'server') {
+          toastMessage = err.message;
+          toastType = 'error';
+          next = null;
+        } else if (err.status === 422) {
+          toastMessage = err.message || strings.nonFoodErrorMsg;
+        } else if (err.message && err.message.length < 160) {
+          toastMessage = err.message;
+        }
       }
+
+      showToast(toastMessage, toastType);
+      if (next === 'manual') setTimeout(() => router.push('/diary/add'), 800);
+      if (next === 'paywall') setTimeout(() => router.push('/paywall'), 800);
     }
   };
 
   const takePhoto = async () => {
-    if (!cameraRef.current || isProcessing) return;
+    if (!cameraRef.current || processingRef.current) return;
+    processingRef.current = true;
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -94,35 +158,41 @@ export default function ScanScreen() {
       });
 
       if (photo?.uri) {
-        startAnalysis(photo.uri);
+        await startAnalysis(photo.uri);
+      } else {
+        processingRef.current = false;
       }
     } catch (e) {
-      console.error('Camera error:', e);
-      showToast('Rasmga olishda xatolik yuz berdi.', 'error');
+      if (__DEV__) console.warn('Camera error:', e);
+      finishProcessing();
+      showToast(strings.photoCaptureFailed, 'error');
     }
   };
 
   const pickImageFromGallery = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      showToast(strings.permissionDesc, 'warning');
-      return;
-    }
+    if (processingRef.current) return;
+    processingRef.current = true;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.7,
+      });
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled && result.assets[0]?.uri) {
-      startAnalysis(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]?.uri) {
+        await startAnalysis(result.assets[0].uri);
+      } else {
+        processingRef.current = false;
+      }
+    } catch (e) {
+      if (__DEV__) console.warn('Gallery error:', e);
+      finishProcessing();
     }
   };
 
   if (!permission) {
     return (
-      <SafeAreaView style={[styles.permissionContainer, { backgroundColor: currentTheme.background }]}>
+      <SafeAreaView style={[styles.permissionContainer, { backgroundColor: currentTheme.background }]} edges={['top', 'bottom']}>
         <ActivityIndicator size="large" color={currentTheme.primary} />
       </SafeAreaView>
     );
@@ -130,7 +200,7 @@ export default function ScanScreen() {
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={[styles.permissionContainer, { backgroundColor: currentTheme.background }]}>
+      <SafeAreaView style={[styles.permissionContainer, { backgroundColor: currentTheme.background }]} edges={['top', 'bottom']}>
         <View style={[styles.permissionBox, { backgroundColor: currentTheme.card, borderColor: currentTheme.border }]}>
           <Sparkles color={currentTheme.primary} size={40} />
           <Text style={[styles.permissionTitle, { color: currentTheme.text }]}>{strings.permissionTitle}</Text>
@@ -139,7 +209,10 @@ export default function ScanScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.permissionBtn, { backgroundColor: currentTheme.primary }]}
-            onPress={requestPermission}
+            onPress={() => {
+              if (permission.canAskAgain) requestPermission();
+              else Linking.openSettings().catch(() => {});
+            }}
           >
             <Text style={styles.permissionBtnText}>{strings.grantPermission}</Text>
           </TouchableOpacity>
@@ -149,29 +222,53 @@ export default function ScanScreen() {
   }
 
   // Calculate dynamic adaptive viewfinder box
-  const viewfinderSize = Math.min(width * 0.72, height * 0.35, 270);
+  const isTable = scanMode === 'table';
+  const viewfinderWidth = isTable
+    ? Math.min(width - 36, 380)
+    : Math.min(width * 0.72, height * 0.35, 270);
+  const viewfinderHeight = isTable
+    ? Math.min(width * 0.82, 320)
+    : Math.min(width * 0.72, height * 0.35, 270);
+  const frameColor = isTable ? '#10B981' : currentTheme.primary;
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={onContainerLayout}>
       {/* 1. Camera live stream in background */}
-      <CameraView
-        ref={cameraRef}
-        style={StyleSheet.absoluteFillObject}
-        facing="back"
-        enableTorch={flash}
+      {isFocused && cameraSession > 0 && layoutH > 0 ? (
+        <CameraView
+          key={`cam-${cameraSession}-${layoutH}`}
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          enableTorch={flash}
+        />
+      ) : null}
+
+      <LinearGradient
+        pointerEvents="none"
+        colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0)']}
+        style={[styles.topShade, { height: insets.top + 90 }]}
+      />
+      <LinearGradient
+        pointerEvents="none"
+        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.7)']}
+        locations={[0, 0.4, 1]}
+        style={[styles.bottomShade, { height: insets.bottom + 260 }]}
       />
 
       {/* 2. Top-level overlay with perfect vertical balancing */}
-      <SafeAreaView style={styles.overlayContainer} pointerEvents="box-none">
+      <SafeAreaView style={styles.overlayContainer} edges={['top', 'left', 'right']} pointerEvents="box-none">
         {/* Top Controls Bar */}
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
             <X color="#FFFFFF" size={22} />
           </TouchableOpacity>
 
-          <View style={styles.aiBadge}>
-            <Sparkles color={currentTheme.primary} size={14} />
-            <Text style={styles.aiBadgeText}>AI Camera</Text>
+          <View style={[styles.aiBadge, isTable && { borderColor: '#10B981' }]}>
+            <Sparkles color={isTable ? '#10B981' : currentTheme.primary} size={14} />
+            <Text style={styles.aiBadgeText}>
+              {isTable ? strings.tableMode : strings.singleDishMode}
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -184,14 +281,18 @@ export default function ScanScreen() {
 
         {/* Viewfinder in middle with flexible vertical space */}
         <View style={styles.viewfinderContainer}>
-          <View style={[styles.viewfinder, { width: viewfinderSize, height: viewfinderSize }]}>
-            <View style={[styles.corner, styles.topLeft, { borderColor: currentTheme.primary }]} />
-            <View style={[styles.corner, styles.topRight, { borderColor: currentTheme.primary }]} />
-            <View style={[styles.corner, styles.bottomLeft, { borderColor: currentTheme.primary }]} />
-            <View style={[styles.corner, styles.bottomRight, { borderColor: currentTheme.primary }]} />
+          <View style={[styles.viewfinder, { width: viewfinderWidth, height: viewfinderHeight }]}>
+            <View style={[styles.corner, styles.topLeft, { borderColor: frameColor }]} />
+            <View style={[styles.corner, styles.topRight, { borderColor: frameColor }]} />
+            <View style={[styles.corner, styles.bottomLeft, { borderColor: frameColor }]} />
+            <View style={[styles.corner, styles.bottomRight, { borderColor: frameColor }]} />
 
             <View style={styles.targetCenter}>
-              <Text style={styles.targetText}>{strings.cameraHint}</Text>
+              <Text style={styles.targetText}>
+                {isTable
+                  ? strings.tableModeHint
+                  : strings.cameraHint}
+              </Text>
             </View>
           </View>
         </View>
@@ -201,15 +302,52 @@ export default function ScanScreen() {
           style={[
             styles.bottomControls,
             {
-              paddingBottom: Math.max(insets.bottom + 20, 36),
+              paddingBottom: Math.max(insets.bottom + 16, 28),
             },
           ]}
         >
+          {/* Mode Selector (Apple Camera Style) */}
+          <View style={styles.modeSelector}>
+            <TouchableOpacity
+              style={[styles.modeTab, !isTable && styles.modeTabActive]}
+              onPress={() => {
+                try {
+                  Haptics.selectionAsync();
+                } catch (e) {}
+                setScanMode('single');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.modeText, !isTable && styles.modeTextActive]}>
+                🍽️ {strings.singleDishMode}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modeTab, isTable && styles.modeTabActive]}
+              onPress={() => {
+                try {
+                  Haptics.selectionAsync();
+                } catch (e) {}
+                setScanMode('table');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.modeText, isTable && styles.modeTextActive]}>
+                🍱 {strings.tableMode}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <Text style={styles.hintText}>{strings.cameraSub}</Text>
 
           <View style={styles.actionButtonsRow}>
             {/* Gallery Picker */}
-            <TouchableOpacity style={styles.galleryButton} onPress={pickImageFromGallery}>
+            <TouchableOpacity
+              style={styles.galleryButton}
+              onPress={pickImageFromGallery}
+              disabled={isProcessing}
+            >
               <ImageIcon color="#FFFFFF" size={24} />
             </TouchableOpacity>
 
@@ -229,8 +367,18 @@ export default function ScanScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* Symmetrical placeholder */}
-            <View style={{ width: 52, height: 52 }} />
+            <TouchableOpacity
+              style={styles.galleryButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/scan/barcode');
+              }}
+              disabled={isProcessing}
+              accessibilityRole="button"
+              accessibilityLabel={strings.barcodeScannerTitle}
+            >
+              <Barcode color="#FFFFFF" size={24} />
+            </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>
@@ -244,7 +392,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
   },
   overlayContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'space-between',
   },
   permissionContainer: {
@@ -378,9 +526,10 @@ const styles = StyleSheet.create({
   bottomControls: {
     paddingHorizontal: 24,
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.45)',
     paddingTop: 14,
   },
+  topShade: { position: 'absolute', top: 0, left: 0, right: 0 },
+  bottomShade: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   hintText: {
     color: '#E2E8F0',
     fontSize: 12,
@@ -424,5 +573,33 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     backgroundColor: '#FFFFFF',
+  },
+  modeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderRadius: 24,
+    padding: 3,
+    marginBottom: 12,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  modeTab: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  modeTabActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  modeText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modeTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
 });

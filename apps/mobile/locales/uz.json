@@ -1,0 +1,5 @@
+{
+  "NSCameraUsageDescription": "CaloSnap taomlarni suratga olish, shtrix-kod va yorliqlarni skanerlash uchun kamerangizdan foydalanadi.",
+  "NSPhotoLibraryUsageDescription": "CaloSnap taom surati, mahsulot yorlig‘i yoki profil rasmini galereyadan tanlash imkonini beradi.",
+  "NSFaceIDUsageDescription": "CaloSnap ilovasiga xavfsiz kirish uchun Face ID ishlatiladi."
+}

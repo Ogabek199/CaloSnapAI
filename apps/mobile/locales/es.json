@@ -1,0 +1,5 @@
+{
+  "NSCameraUsageDescription": "CaloSnap usa la cámara para fotografiar comidas y escanear códigos de barras y etiquetas nutricionales.",
+  "NSPhotoLibraryUsageDescription": "CaloSnap te permite elegir de tu galería una foto de comida, una etiqueta nutricional o una foto de perfil.",
+  "NSFaceIDUsageDescription": "CaloSnap usa Face ID para desbloquear la app de forma segura."
+}

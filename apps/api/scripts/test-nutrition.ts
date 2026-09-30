@@ -1,4 +1,4 @@
-import { NutritionService } from './src/modules/nutrition/nutrition.service';
+import { NutritionService } from '../src/modules/nutrition/nutrition.service';
 
 const service = new NutritionService();
 

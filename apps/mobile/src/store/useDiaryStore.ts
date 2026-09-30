@@ -75,6 +75,9 @@ interface DiaryState {
   updateDiaryItem: (itemId: string, weightGrams: number) => Promise<void>;
 }
 
+// Bumped on every diary load and on reset so late responses (older date, previous user) are dropped.
+let loadSeq = 0;
+
 export const useDiaryStore = create<DiaryState>((set, get) => ({
   selectedDate: localDateKey(),
   todaySummary: createDefaultSummary(),
@@ -105,24 +108,25 @@ export const useDiaryStore = create<DiaryState>((set, get) => ({
       },
     })),
 
-  resetDiary: () =>
+  resetDiary: () => {
+    loadSeq++;
     set({
       selectedDate: localDateKey(),
       todaySummary: createDefaultSummary(2150),
       calorieGoal: 2150,
       isLoading: false,
       hasLoaded: false,
-    }),
+    });
+  },
 
   setSelectedDate: async (date: string) => {
     const today = localDateKey();
     if (date > today) return;
-    if (date === get().selectedDate && get().hasLoaded) {
-      // Still refresh so pull/tab switch stays fresh
-    }
+    const seq = ++loadSeq;
     set({ selectedDate: date, isLoading: true });
     try {
       const summary = await ApiClient.getDiaryByDate(date);
+      if (seq !== loadSeq) return;
       if (summary && summary.meals) {
         set({
           todaySummary: summary,
@@ -130,13 +134,18 @@ export const useDiaryStore = create<DiaryState>((set, get) => ({
         });
       }
     } catch (e) {
-      console.log('Diary date load notice:', e);
+      if (seq !== loadSeq) return;
+      if (get().todaySummary?.date !== date) {
+        set({ todaySummary: createDefaultSummary(get().calorieGoal, date) });
+      }
+      if (__DEV__) console.log('Diary date load notice:', e);
     } finally {
-      set({ isLoading: false, hasLoaded: true });
+      if (seq === loadSeq) set({ isLoading: false, hasLoaded: true });
     }
   },
 
   refreshDiary: async () => {
+    const seq = ++loadSeq;
     set({ isLoading: true });
     try {
       // Keep selectedDate aligned with "today" if calendar day rolled over
@@ -147,6 +156,7 @@ export const useDiaryStore = create<DiaryState>((set, get) => ({
         set({ selectedDate: today });
       }
       const summary = await ApiClient.getDiaryByDate(date);
+      if (seq !== loadSeq) return;
       if (summary && summary.meals) {
         set({
           todaySummary: summary,
@@ -154,9 +164,9 @@ export const useDiaryStore = create<DiaryState>((set, get) => ({
         });
       }
     } catch (e) {
-      console.log('Diary refresh notice:', e);
+      if (__DEV__) console.log('Diary refresh notice:', e);
     } finally {
-      set({ isLoading: false, hasLoaded: true });
+      if (seq === loadSeq) set({ isLoading: false, hasLoaded: true });
     }
   },
 
@@ -210,8 +220,10 @@ export const useDiaryStore = create<DiaryState>((set, get) => ({
 
     const remainingCalories = Math.max(0, Math.round(state.calorieGoal - allMealsTotal.calories));
 
+    const seq = ++loadSeq;
     set({
       selectedDate: today,
+      isLoading: false,
       todaySummary: {
         ...currentSummary,
         date: today,
@@ -221,19 +233,35 @@ export const useDiaryStore = create<DiaryState>((set, get) => ({
       },
     });
 
+    const payload = newItems
+      .map((item) => ({
+        mealType,
+        foodId: item.foodId || item.food?.id,
+        weightGrams: item.weightGrams || 300,
+        ...(scanId ? { scanId } : {}),
+      }))
+      .filter((item): item is typeof item & { foodId: string } => !!item.foodId);
+
     try {
-      for (const item of newItems) {
-        const foodId = item.foodId || item.food?.id;
-        if (foodId) {
-          await ApiClient.addMealItem(mealType, foodId, item.weightGrams || 300, scanId);
-        }
-      }
-      const latestSummary = await ApiClient.getDiaryByDate(today);
-      if (latestSummary && latestSummary.meals) {
+      const latestSummary =
+        payload.length > 0
+          ? await ApiClient.addMealItemsBatch(payload)
+          : await ApiClient.getDiaryByDate(today);
+      if (seq === loadSeq && latestSummary && latestSummary.meals) {
         set({ todaySummary: latestSummary, selectedDate: today });
       }
     } catch (err) {
-      set({ todaySummary: previousSummary, selectedDate: previousDate });
+      if (seq === loadSeq) {
+        // A timeout may still have saved server-side; prefer the server's view over a blind rollback.
+        const latest = await ApiClient.getDiaryByDate(today).catch(() => null);
+        if (seq === loadSeq) {
+          if (latest && latest.meals) {
+            set({ todaySummary: latest, selectedDate: today });
+          } else {
+            set({ todaySummary: previousSummary, selectedDate: previousDate });
+          }
+        }
+      }
       throw err;
     }
   },
@@ -244,7 +272,7 @@ export const useDiaryStore = create<DiaryState>((set, get) => ({
       await ApiClient.removeMealItem(itemId);
       await get().refreshDiary();
     } catch (e) {
-      console.log('Error removing meal item:', e);
+      if (__DEV__) console.log('Error removing meal item:', e);
       throw e;
     }
   },
@@ -255,7 +283,7 @@ export const useDiaryStore = create<DiaryState>((set, get) => ({
       await ApiClient.updateMealItem(itemId, weightGrams);
       await get().refreshDiary();
     } catch (e) {
-      console.log('Error updating meal item:', e);
+      if (__DEV__) console.log('Error updating meal item:', e);
       throw e;
     }
   },

@@ -10,19 +10,30 @@ export class TrackingService {
       throw new BadRequestException('Vazn 30–300 kg oralig‘ida bo‘lishi kerak');
     }
     const at = loggedAt ? new Date(loggedAt) : new Date();
+    if (at.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
+      throw new BadRequestException('Kelajak sana uchun vazn kiritib bo‘lmaydi');
+    }
     const log = await this.prisma.weightLog.create({
       data: { userId, weightKg, loggedAt: at },
     });
-    await this.prisma.userProfile.updateMany({
+    const latest = await this.prisma.weightLog.findFirst({
       where: { userId },
-      data: { weightKg },
+      orderBy: [{ loggedAt: 'desc' }, { createdAt: 'desc' }],
+      select: { id: true },
     });
+    if (latest?.id === log.id) {
+      await this.prisma.userProfile.updateMany({
+        where: { userId },
+        data: { weightKg },
+      });
+    }
     return log;
   }
 
   async listWeight(userId: string, days = 30) {
+    const range = Number.isFinite(days) ? Math.max(1, Math.min(days, 365)) : 30;
     const since = new Date();
-    since.setDate(since.getDate() - Math.max(1, Math.min(days, 365)));
+    since.setDate(since.getDate() - range);
     since.setHours(0, 0, 0, 0);
     return this.prisma.weightLog.findMany({
       where: { userId, loggedAt: { gte: since } },

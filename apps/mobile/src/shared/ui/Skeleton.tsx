@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View, ViewStyle } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import { Radius, Spacing } from '../theme/spacing';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, usePalette } from '../../store/useAppStore';
 
 type BoneProps = {
   width?: number | `${number}%`;
@@ -10,37 +10,55 @@ type BoneProps = {
   style?: ViewStyle;
 };
 
+// One pulse drives every mounted bone, so a full-screen skeleton costs a single native animation.
+const sharedPulse = new Animated.Value(0.45);
+let pulseLoop: Animated.CompositeAnimation | null = null;
+let pulseUsers = 0;
+
+function acquirePulse() {
+  pulseUsers += 1;
+  if (pulseLoop) return;
+  pulseLoop = Animated.loop(
+    Animated.sequence([
+      Animated.timing(sharedPulse, {
+        toValue: 1,
+        duration: 750,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(sharedPulse, {
+        toValue: 0.4,
+        duration: 750,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]),
+  );
+  pulseLoop.start();
+}
+
+function releasePulse() {
+  pulseUsers = Math.max(0, pulseUsers - 1);
+  if (pulseUsers === 0 && pulseLoop) {
+    pulseLoop.stop();
+    pulseLoop = null;
+  }
+}
+
 /** Soft iOS-style pulsing bone. */
-export function SkeletonBone({
+export const SkeletonBone = React.memo(function SkeletonBone({
   width = '100%',
   height = 14,
   radius = Radius.sm,
   style,
 }: BoneProps) {
-  const { themeMode } = useAppStore();
-  const isDark = themeMode === 'dark';
-  const opacity = useRef(new Animated.Value(0.45)).current;
+  const isDark = useAppStore((s) => s.themeMode === 'dark');
+  const opacity = sharedPulse;
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 750,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.4,
-          duration: 750,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity]);
+    acquirePulse();
+    return releasePulse;
+  }, []);
 
   return (
     <Animated.View
@@ -56,10 +74,28 @@ export function SkeletonBone({
       ]}
     />
   );
+});
+
+/**
+ * Fade + slight rise when real content replaces a skeleton.
+ * On Android, native-driver opacity on a parent makes elevated (and some
+ * SVG) children invisible — render a plain View instead.
+ */
+export function FadeIn({
+  children,
+  delay = 0,
+  duration = 320,
+  style,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  duration?: number;
+  style?: ViewStyle;
+}) {
+  return <FadeInContent delay={delay} duration={duration} style={style}>{children}</FadeInContent>;
 }
 
-/** Fade + slight rise when real content replaces a skeleton. */
-export function FadeIn({
+function FadeInContent({
   children,
   delay = 0,
   duration = 320,
@@ -101,8 +137,7 @@ export function FadeIn({
 
 /** Home calorie card + meal list placeholder. */
 export function HomeSkeleton() {
-  const { theme } = useAppStore();
-  const c = theme();
+  const c = usePalette();
 
   return (
     <View style={styles.stack}>
@@ -149,8 +184,7 @@ export function HomeSkeleton() {
 
 /** Diary summary + meal cards placeholder. */
 export function DiarySkeleton() {
-  const { theme } = useAppStore();
-  const c = theme();
+  const c = usePalette();
 
   return (
     <View style={styles.stack}>
@@ -185,8 +219,7 @@ export function DiarySkeleton() {
 
 /** Food search list rows. */
 export function FoodListSkeleton({ rows = 6 }: { rows?: number }) {
-  const { theme } = useAppStore();
-  const c = theme();
+  const c = usePalette();
 
   return (
     <View style={styles.listStack}>
@@ -208,54 +241,54 @@ export function FoodListSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: Spacing.lg },
+  stack: {},
   card: {
     borderRadius: Radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   ringRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xl,
     marginTop: Spacing.lg,
     marginBottom: Spacing.xl,
   },
-  sideStats: { flex: 1, gap: 6 },
-  macroGap: { gap: 14 },
+  sideStats: { flex: 1, marginLeft: Spacing.xl },
+  macroGap: { marginTop: 4 },
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: Spacing.lg,
   },
   foodRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
   },
   summary: {
     flexDirection: 'row',
     borderRadius: Radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
   summaryCell: {
     flex: 1,
     alignItems: 'center',
-    gap: 8,
   },
   mealHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  listStack: { gap: 10, marginTop: 8 },
+  listStack: { marginTop: 8 },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
     padding: 14,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 10,
   },
 });

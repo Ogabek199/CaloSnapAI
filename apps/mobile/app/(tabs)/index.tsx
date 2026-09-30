@@ -1,29 +1,35 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  RefreshControl,
+  Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { ChevronRight, User, Utensils } from 'lucide-react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppStore } from '../../src/store/useAppStore';
+import { ChevronRight, Utensils, PartyPopper, ChefHat, MessageCircle, HeartPulse } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
+import { useAppStore, usePalette, useStrings } from '../../src/store/useAppStore';
+import { foodName, intlLocale } from '../../src/shared/i18n/languages';
 import { useDiaryStore, localDateKey } from '../../src/store/useDiaryStore';
+import { useFeastStore, applyFeastAdjustment } from '../../src/store/useFeastStore';
 import { useToastStore } from '../../src/store/useToastStore';
 import { tabBarScrollPadding } from '../../src/shared/theme/layout';
-import { FontSize, Radius, Spacing, softShadow } from '../../src/shared/theme/spacing';
+import { FontSize, Radius, Spacing, softShadow, androidTextFix } from '../../src/shared/theme/spacing';
 import { CalorieRing } from '../../src/shared/ui/CalorieRing';
 import { MacroBars } from '../../src/shared/ui/MacroBars';
-import { AndroidRefreshBanner, IOSRefreshControl } from '../../src/shared/ui/IOSRefreshControl';
 import { CustomModal } from '../../src/shared/ui/CustomModal';
 import { DayDateStrip } from '../../src/shared/ui/DayDateStrip';
-import { FadeIn, HomeSkeleton } from '../../src/shared/ui/Skeleton';
+import { HomeSkeleton, SkeletonBone } from '../../src/shared/ui/Skeleton';
 import { RemoteImage } from '../../src/shared/ui/RemoteImage';
+import { StatusBarScrim } from '../../src/shared/ui/StatusBarScrim';
 import { MEAL_CONFIGS, type MealType } from '../../src/features/meals/meal-config';
-import { ApiClient } from '../../src/shared/api/api-client';
+import { ApiClient, clearApiCache } from '../../src/shared/api/api-client';
+import { dailyHealthAlerts } from '../../src/features/assistant/health-rules';
 
 type FoodRow = {
   id: string;
@@ -42,7 +48,13 @@ type FoodRow = {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t, theme, themeMode, user, isOnboardingCompleted, language } = useAppStore();
+  const isIOS = Platform.OS === 'ios';
+  const themeMode = useAppStore((s) => s.themeMode);
+  const isOnboardingCompleted = useAppStore((s) => s.isOnboardingCompleted);
+  const language = useAppStore((s) => s.language);
+  const userWeightKg = useAppStore((s) => s.user.weightKg);
+  const isPremium = useAppStore((s) => !!s.user.isPremium);
+  const healthConditions = useAppStore((s) => s.user.healthConditions);
   const {
     todaySummary,
     calorieGoal,
@@ -52,7 +64,36 @@ export default function HomeScreen() {
     selectedDate,
     setSelectedDate,
     isSelectedToday,
-  } = useDiaryStore();
+  } = useDiaryStore(
+    useShallow((s) => ({
+      todaySummary: s.todaySummary,
+      calorieGoal: s.calorieGoal,
+      refreshDiary: s.refreshDiary,
+      isLoading: s.isLoading,
+      hasLoaded: s.hasLoaded,
+      selectedDate: s.selectedDate,
+      setSelectedDate: s.setSelectedDate,
+      isSelectedToday: s.isSelectedToday,
+    })),
+  );
+
+  const {
+    activePlan: feastPlan,
+    openModal: openFeastModal,
+    getActiveAdjustmentForDate,
+    getCurrentDayProgress,
+    isFeastDay,
+    expireIfFinished,
+  } = useFeastStore(
+    useShallow((s) => ({
+      activePlan: s.activePlan,
+      openModal: s.openModal,
+      getActiveAdjustmentForDate: s.getActiveAdjustmentForDate,
+      getCurrentDayProgress: s.getCurrentDayProgress,
+      isFeastDay: s.isFeastDay,
+      expireIfFinished: s.expireIfFinished,
+    })),
+  );
 
   const [refreshing, setRefreshing] = useState(false);
   const [detail, setDetail] = useState<FoodRow | null>(null);
@@ -63,17 +104,23 @@ export default function HomeScreen() {
     days: { date: string; calories: number; logged: boolean }[];
   } | null>(null);
   const [water, setWater] = useState({ totalMl: 0, goalMl: 2000 });
-  const { showToast } = useToastStore();
+  const [extrasLoaded, setExtrasLoaded] = useState(false);
+  const [addingWater, setAddingWater] = useState(false);
+  const addingWaterRef = useRef(false);
+  const showToast = useToastStore((s) => s.showToast);
 
-  const c = theme();
-  const strings = t();
+  const c = usePalette();
+  const strings = useStrings();
   const isDark = themeMode === 'dark';
   const showSkeleton = isLoading && !hasLoaded;
   const refreshTint = isDark ? '#FFFFFF' : c.primary;
   const viewingToday = isSelectedToday();
-  const locale = language === 'ru' ? 'ru-RU' : language === 'en' ? 'en-US' : 'uz-UZ';
+  const locale = intlLocale(language);
 
   const loadExtras = async () => {
+    if (expireIfFinished()) {
+      showToast(strings.feastCompletedToast, 'success');
+    }
     try {
       const to = localDateKey();
       const fromDate = new Date();
@@ -89,34 +136,45 @@ export default function HomeScreen() {
         goalMl: waterToday.goalMl || 2000,
       });
     } catch (e) {
-      console.log('Home extras:', e);
+      if (__DEV__) console.log('Home extras:', e);
+    } finally {
+      setExtrasLoaded(true);
     }
   };
 
   useEffect(() => {
     if (!isOnboardingCompleted) return;
     refreshDiary();
-    loadExtras();
   }, [isOnboardingCompleted]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isOnboardingCompleted) return;
+      loadExtras();
+    }, [isOnboardingCompleted]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await refreshDiary();
-      await loadExtras();
+      clearApiCache();
+      await Promise.all([refreshDiary(), loadExtras()]);
     } finally {
       setRefreshing(false);
     }
   };
 
   const addWater = async () => {
+    if (addingWaterRef.current) return;
     const goalMl = water.goalMl || 2000;
     const waterRemaining = Math.max(0, goalMl - water.totalMl);
     if (waterRemaining <= 0) {
       showToast(strings.waterGoalReached.replace('{n}', String(goalMl)), 'info');
       return;
     }
+    addingWaterRef.current = true;
+    setAddingWater(true);
     try {
       await ApiClient.addWater(Math.min(250, waterRemaining));
       const w = await ApiClient.waterToday();
@@ -126,34 +184,32 @@ export default function HomeScreen() {
       });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e: any) {
-      showToast(e?.message || 'Xatolik', 'error');
+      showToast(e?.message || strings.errGeneric, 'error');
+    } finally {
+      addingWaterRef.current = false;
+      setAddingWater(false);
     }
   };
 
   const total = todaySummary?.totalNutrition || { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  const goal = todaySummary?.goalCalories || calorieGoal || 2150;
+  const feastAdjustment = getActiveAdjustmentForDate(selectedDate);
+  const baseGoal = todaySummary?.goalCalories || calorieGoal || 2150;
+  const goal = applyFeastAdjustment(baseGoal, feastAdjustment);
   const consumed = Math.round(total.calories || 0);
   const remaining = Math.max(0, Math.round(goal - consumed));
   const progress = goal > 0 ? Math.min(100, (consumed / goal) * 100) : 0;
+  const isFeast = isFeastDay(selectedDate);
+  const currentFeastProgress = getCurrentDayProgress(selectedDate);
 
-  const proteinTarget = Math.max(1, Math.round((goal * 0.25) / 4));
-  const carbsTarget = Math.max(1, Math.round((goal * 0.5) / 4));
+  // Same split as GoalsService.calculateTDEE: protein 2 g/kg, fat 25% kcal, carbs remainder.
+  const proteinTarget = Math.max(1, Math.round((userWeightKg || 70) * 2));
   const fatTarget = Math.max(1, Math.round((goal * 0.25) / 9));
+  const carbsTarget = Math.max(1, Math.round((goal - (proteinTarget * 4 + fatTarget * 9)) / 4));
 
-  const firstName = user.name?.split(' ')[0] || 'Foydalanuvchi';
-  const headerDate = viewingToday
-    ? `${strings.today}, ${new Date().toLocaleDateString(locale, {
-        day: 'numeric',
-        month: 'long',
-      })}`
-    : (() => {
-        const [y, m, d] = selectedDate.split('-').map(Number);
-        return new Date(y, m - 1, d).toLocaleDateString(locale, {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-        });
-      })();
+  const dailyAlerts =
+    isPremium && viewingToday
+      ? dailyHealthAlerts(healthConditions, { carbs: total.carbs || 0, fat: total.fat || 0 }, goal, strings)
+      : [];
 
   const balanceTitle = viewingToday ? strings.calorieBalance : strings.calorieBalanceDay;
   const mealsTitle = viewingToday ? strings.todaysMeals : strings.mealsForDay;
@@ -164,7 +220,7 @@ export default function HomeScreen() {
       for (const item of meal.items || []) {
         rows.push({
           id: item.id,
-          name: item.food?.nameUz || item.food?.name || 'Taom',
+          name: foodName(item.food, language),
           weightGrams: item.weightGrams || 0,
           calories: Math.round(item.nutrition?.calories || 0),
           protein: Math.round((item.nutrition?.protein || 0) * 10) / 10,
@@ -183,68 +239,63 @@ export default function HomeScreen() {
       const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return tb - ta;
     });
-  }, [todaySummary]);
+  }, [todaySummary, language]);
 
   const openDetail = (row: FoodRow) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setDetail(row);
   };
 
-  const mealTitle = (type: MealType) => MEAL_CONFIGS[type]?.title || type;
+  const mealTitle = (type: MealType) =>
+    strings[type.toLowerCase() as 'breakfast' | 'lunch' | 'dinner' | 'snack'] ||
+    MEAL_CONFIGS[type]?.title ||
+    type;
+
+  const weekMax = week
+    ? Math.max(week.goalCalories, ...week.days.map((x) => x.calories), 1)
+    : 1;
+  const waterFull = water.totalMl >= water.goalMl;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={['top']}>
+    <View style={[styles.safe, { backgroundColor: c.background }]}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarScrollPadding(insets.bottom) }]}
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: (isIOS ? 0 : insets.top) + Spacing.sm,
+            paddingBottom: tabBarScrollPadding(insets.bottom),
+          },
+        ]}
+        // iOS: an inset (not padding) keeps the pull-to-refresh spinner below the notch.
+        contentInset={isIOS ? { top: insets.top } : undefined}
+        contentOffset={isIOS ? { x: 0, y: -insets.top } : undefined}
+        scrollIndicatorInsets={isIOS ? { top: insets.top } : undefined}
+        contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <IOSRefreshControl
+          <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={refreshTint}
-            backgroundColor={c.card}
+            colors={[c.primary]}
+            progressBackgroundColor={c.card}
+            progressViewOffset={insets.top}
           />
         }
       >
-        <AndroidRefreshBanner refreshing={refreshing} tintColor={refreshTint} />
-
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.hello, { color: c.textMuted }]}>{strings.greeting}</Text>
-            <Text style={[styles.name, { color: c.text }]}>{firstName}</Text>
-            <Text style={[styles.date, { color: c.textSecondary }]}>{headerDate}</Text>
-          </View>
-          <Pressable
-            onPress={() => router.push('/(tabs)/profile')}
-            style={({ pressed }) => [
-              styles.avatarBtn,
-              { backgroundColor: c.card, borderColor: c.border, opacity: pressed ? 0.85 : 1 },
-              softShadow('sm'),
-            ]}
-          >
-            {user.avatarUrl ? (
-              <RemoteImage
-                uri={user.avatarUrl}
-                style={styles.avatarImg}
-                indicatorColor={c.primary}
-                placeholderColor={c.cardHover}
-              />
-            ) : (
-              <User color={c.textMuted} size={22} />
-            )}
-          </Pressable>
-        </View>
 
         {showSkeleton ? (
           <HomeSkeleton />
         ) : (
-          <FadeIn style={{ gap: Spacing.lg }}>
-            <View style={styles.stripWrap}>
+          <View>
+            <View style={[styles.stripWrap, styles.section]}>
               <DayDateStrip
                 selectedDate={selectedDate}
                 onSelect={setSelectedDate}
                 locale={locale}
                 primaryColor={c.primary}
+                primaryBg={c.primaryBg}
                 textColor={c.text}
                 mutedColor={c.textMuted}
                 cardColor={c.card}
@@ -252,14 +303,178 @@ export default function HomeScreen() {
               />
             </View>
 
-            <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }, softShadow('sm')]}>
-              <Text style={[styles.cardTitle, { color: c.textSecondary }]}>{balanceTitle}</Text>
+            {/* Feast Active Recovery Banner */}
+            {feastPlan && currentFeastProgress && (
+              <Pressable
+                style={[
+                  styles.card,
+                  styles.section,
+                  softShadow('sm'),
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 149, 0, 0.12)' : '#FFF8EE',
+                    borderColor: isDark ? 'rgba(255, 149, 0, 0.35)' : '#FFE3BD',
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  openFeastModal();
+                }}
+              >
+                <View style={styles.feastBannerRow}>
+                  <View
+                    style={[
+                      styles.feastBannerIcon,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 149, 0, 0.25)'
+                          : 'rgba(255, 149, 0, 0.15)',
+                      },
+                    ]}
+                  >
+                    <PartyPopper size={20} color="#FF9500" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.feastBannerTitle,
+                        { color: isDark ? '#FFB340' : '#D97706' },
+                      ]}
+                    >
+                      {currentFeastProgress.isFeastDay
+                        ? `🎉 ${strings.feastDayOf} (+${feastPlan.surplusCalories} kcal)`
+                        : strings.feastActiveBanner
+                            .replace(
+                              '{day}',
+                              String(currentFeastProgress.currentDay),
+                            )
+                            .replace(
+                              '{total}',
+                              String(feastPlan.compensationDays),
+                            )
+                            .replace(
+                              '{deficit}',
+                              String(feastPlan.dailyDeficit),
+                            )}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.feastBannerSubtitle,
+                        { color: isDark ? '#D1D5DB' : '#6B7280' },
+                      ]}
+                    >
+                      {currentFeastProgress.isFeastDay
+                        ? strings.feastWarmMessage
+                        : strings.feastModeSubtitle}
+                    </Text>
+                    <View style={styles.feastBannerFooter}>
+                      {currentFeastProgress.inRecovery ? (
+                        <View style={[styles.feastBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
+                          <Text style={{ fontSize: FontSize.xs, fontWeight: '700', color: '#34C759' }}>
+                            {strings.feastPerDay.replace('{n}', String(feastPlan.dailyDeficit))}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.feastBadge, { backgroundColor: 'rgba(255,149,0,0.15)' }]}>
+                          <PartyPopper size={12} color="#FF9500" />
+                          <Text style={{ fontSize: FontSize.xs, fontWeight: '700', color: '#FF9500' }}>
+                            {strings.feastDayOf}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.feastDetailsBtn}>
+                        <Text style={[styles.feastDetailsText, { color: isDark ? '#FFB340' : '#D97706' }]}>
+                          {strings.feastDetails}
+                        </Text>
+                        <ChevronRight size={14} color={isDark ? '#FFB340' : '#D97706'} />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </Pressable>
+            )}
+
+            {/* Over-Budget Feast Suggestion */}
+            {!feastPlan && viewingToday && consumed > baseGoal + 150 && (
+              <Pressable
+                style={[
+                  styles.card,
+                  styles.section,
+                  softShadow('sm'),
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 149, 0, 0.1)' : '#FFFBF4',
+                    borderColor: isDark ? 'rgba(255, 149, 0, 0.3)' : '#FED7AA',
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  openFeastModal(consumed - baseGoal);
+                }}
+              >
+                <View style={styles.feastBannerRow}>
+                  <View
+                    style={[
+                      styles.feastBannerIcon,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 149, 0, 0.25)'
+                          : 'rgba(255, 149, 0, 0.15)',
+                      },
+                    ]}
+                  >
+                    <PartyPopper size={22} color="#FF9500" />
+                  </View>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text
+                      style={[
+                        styles.feastBannerTitle,
+                        { color: isDark ? '#FFB340' : '#D97706' },
+                      ]}
+                    >
+                      {strings.feastOverBudgetTitle}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.feastBannerSubtitle,
+                        { color: isDark ? '#D1D5DB' : '#6B7280' },
+                      ]}
+                    >
+                      {strings.feastOverBudgetDesc}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.feastBalanceBtn,
+                      { backgroundColor: '#FF9500' },
+                    ]}
+                  >
+                    <Text style={styles.feastBalanceBtnText}>
+                      {strings.feastBalanceNow}
+                    </Text>
+                  </View>
+                </View>
+              </Pressable>
+            )}
+
+            <View style={[styles.card, styles.section, softShadow('sm'), { backgroundColor: c.card, borderColor: c.border }]}>
+              <View style={styles.balanceHeadRow}>
+                <Text style={[styles.cardTitle, { color: c.textSecondary, marginBottom: 0 }, androidTextFix]}>{balanceTitle}</Text>
+                {isFeast ? (
+                  <View style={[styles.feastBadge, { backgroundColor: 'rgba(255,149,0,0.15)' }]}>
+                    <PartyPopper size={12} color="#FF9500" />
+                    <Text style={{ fontSize: FontSize.xs, fontWeight: '700', color: '#FF9500' }}>{strings.feastDayOf}</Text>
+                  </View>
+                ) : currentFeastProgress?.inRecovery ? (
+                  <View style={[styles.feastBadge, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
+                    <Text style={{ fontSize: FontSize.xs, fontWeight: '700', color: '#34C759' }}>-{feastPlan?.dailyDeficit} kcal</Text>
+                  </View>
+                ) : null}
+              </View>
 
               <View style={styles.ringRow}>
                 <CalorieRing
                   progress={progress}
                   trackColor={isDark ? '#2A2F3A' : '#ECECE8'}
-                  progressColor={c.primary}
+                  progressColor={isFeast ? '#FF9500' : c.primary}
                   centerLabel={strings.remaining}
                   centerValue={remaining}
                   centerSub="kcal"
@@ -296,23 +511,120 @@ export default function HomeScreen() {
               />
             </View>
 
+            {dailyAlerts.length > 0 && (
+              <View
+                style={[
+                  styles.card,
+                  styles.section,
+                  softShadow('sm'),
+                  { backgroundColor: c.card, borderColor: c.border, padding: Spacing.lg },
+                ]}
+              >
+                <View style={styles.aiHead}>
+                  <HeartPulse size={18} color={c.danger} />
+                  <Text style={[styles.cardTitle, { color: c.text, marginBottom: 0 }, androidTextFix]}>
+                    {strings.healthDailyTitle}
+                  </Text>
+                </View>
+                {dailyAlerts.map((a, idx) => (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.dailyAlert,
+                      { backgroundColor: a.level === 'warning' ? c.dangerBg : 'rgba(245,158,11,0.12)' },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dailyAlertText,
+                        { color: a.level === 'warning' ? c.danger : isDark ? '#FBBF24' : '#B45309' },
+                        androidTextFix,
+                      ]}
+                    >
+                      {a.text}
+                    </Text>
+                  </View>
+                ))}
+                <Text style={[styles.dailyDisclaimer, { color: c.textMuted }, androidTextFix]}>
+                  {strings.healthDisclaimer}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.section}>
+              <Text style={[styles.cardTitle, { color: c.textSecondary }, androidTextFix]}>{strings.aiToolsTitle}</Text>
+              <View style={styles.aiRow}>
+                {[
+                  {
+                    key: 'chef',
+                    title: strings.aiChefTitle,
+                    sub: strings.aiChefSubtitle,
+                    Icon: ChefHat,
+                    tint: '#F59E0B',
+                    route: '/assistant/chef' as const,
+                  },
+                  {
+                    key: 'chat',
+                    title: strings.aiChatTitle,
+                    sub: strings.aiChatSubtitle,
+                    Icon: MessageCircle,
+                    tint: c.primary,
+                    route: '/assistant/chat' as const,
+                  },
+                ].map(({ key, title, sub, Icon, tint, route }) => (
+                  <Pressable
+                    key={key}
+                    accessibilityRole="button"
+                    accessibilityLabel={title}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      router.push(isPremium ? route : '/paywall');
+                    }}
+                    style={({ pressed }) => [
+                      styles.card,
+                      styles.aiCard,
+                      softShadow('sm'),
+                      { backgroundColor: c.card, borderColor: c.border, opacity: pressed ? 0.85 : 1 },
+                    ]}
+                  >
+                    <View style={styles.aiCardTop}>
+                      <View style={[styles.aiIcon, { backgroundColor: `${tint}22` }]}>
+                        <Icon size={20} color={tint} />
+                      </View>
+                      {!isPremium && (
+                        <View style={styles.proBadge}>
+                          <Text style={styles.proBadgeText}>PRO</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.aiTitle, { color: c.text }, androidTextFix]} numberOfLines={1}>
+                      {title}
+                    </Text>
+                    <Text style={[styles.aiSub, { color: c.textMuted }, androidTextFix]} numberOfLines={2}>
+                      {sub}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
             {week ? (
-              <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }, softShadow('sm')]}>
+              <View style={[styles.card, styles.section, softShadow('sm'), { backgroundColor: c.card, borderColor: c.border }]}>
                 <View style={styles.weekHead}>
-                  <Text style={[styles.cardTitle, { color: c.textSecondary, marginBottom: 0 }]}>
+                  <Text style={[styles.cardTitle, { color: c.textSecondary, marginBottom: 0 }, androidTextFix]}>
                     {strings.weekProgress}
                   </Text>
-                  <Text style={{ color: c.primary, fontWeight: '700', fontSize: FontSize.sm }}>
+                  <Text style={[{ color: c.primary, fontWeight: '700', fontSize: FontSize.sm }, androidTextFix]}>
                     {strings.streakLabel} {week.streak}🔥
                   </Text>
                 </View>
-                <Text style={{ color: c.textMuted, fontSize: FontSize.xs, marginBottom: Spacing.md }}>
+                <Text style={[{ color: c.textMuted, fontSize: FontSize.xs, marginBottom: Spacing.md }, androidTextFix]}>
                   {strings.avgKcal}: {week.avgCalories} kcal
                 </Text>
                 <View style={styles.weekBars}>
                   {week.days.map((d) => {
-                    const max = Math.max(week.goalCalories, ...week.days.map((x) => x.calories), 1);
-                    const h = Math.max(4, Math.round((d.calories / max) * 64));
+                    const isDayFeast = isFeastDay(d.date);
+                    const h = Math.max(4, Math.round((d.calories / weekMax) * 64));
                     const label = d.date.slice(8);
                     return (
                       <View key={d.date} style={styles.weekCol}>
@@ -321,14 +633,44 @@ export default function HomeScreen() {
                             styles.weekBar,
                             {
                               height: h,
-                              backgroundColor: d.logged ? c.primary : isDark ? '#2A2F3A' : '#ECECE8',
+                              backgroundColor: isDayFeast
+                                ? '#FF9500'
+                                : d.logged
+                                ? c.primary
+                                : isDark
+                                ? '#2A2F3A'
+                                : '#ECECE8',
                             },
                           ]}
                         />
-                        <Text style={{ color: c.textMuted, fontSize: 10 }}>{label}</Text>
+                        <Text
+                          style={{
+                            color: isDayFeast ? '#FF9500' : c.textMuted,
+                            fontSize: 10,
+                            fontWeight: isDayFeast ? '700' : '400',
+                          }}
+                        >
+                          {label}
+                        </Text>
                       </View>
                     );
                   })}
+                </View>
+              </View>
+            ) : !extrasLoaded ? (
+              <View style={[styles.card, styles.section, { backgroundColor: c.card, borderColor: c.border }]}>
+                <View style={styles.weekHead}>
+                  <SkeletonBone width={120} height={14} />
+                  <SkeletonBone width={64} height={14} />
+                </View>
+                <SkeletonBone width={110} height={10} style={{ marginBottom: Spacing.md }} />
+                <View style={styles.weekBars}>
+                  {[36, 52, 28, 60, 44, 20, 48].map((h, i) => (
+                    <View key={i} style={styles.weekCol}>
+                      <SkeletonBone width={14} height={h} radius={4} />
+                      <SkeletonBone width={12} height={8} radius={3} />
+                    </View>
+                  ))}
                 </View>
               </View>
             ) : null}
@@ -336,48 +678,54 @@ export default function HomeScreen() {
             <View
               style={[
                 styles.card,
+                styles.section,
                 styles.waterRow,
-                { backgroundColor: c.card, borderColor: c.border },
                 softShadow('sm'),
+                { backgroundColor: c.card, borderColor: c.border },
               ]}
             >
               <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: c.textSecondary, marginBottom: 4 }]}>
+                <Text style={[styles.cardTitle, { color: c.textSecondary, marginBottom: 4 }, androidTextFix]}>
                   {strings.waterTitle}
                 </Text>
-                <Text style={{ color: c.text, fontWeight: '700', fontSize: FontSize.lg }}>
-                  {Math.min(water.totalMl, water.goalMl)} / {water.goalMl} ml
-                </Text>
+                {extrasLoaded ? (
+                  <Text style={[{ color: c.text, fontWeight: '700', fontSize: FontSize.lg }, androidTextFix]}>
+                    {Math.min(water.totalMl, water.goalMl)} / {water.goalMl} ml
+                  </Text>
+                ) : (
+                  <SkeletonBone width={110} height={20} style={{ marginTop: 2 }} />
+                )}
               </View>
               <Pressable
                 onPress={addWater}
-                disabled={water.totalMl >= water.goalMl}
+                disabled={waterFull || addingWater}
                 style={({ pressed }) => [
                   styles.waterBtn,
                   {
-                    backgroundColor: water.totalMl >= water.goalMl ? c.textMuted : c.primary,
-                    opacity: pressed && water.totalMl < water.goalMl ? 0.85 : 1,
+                    backgroundColor: waterFull ? c.textMuted : c.primary,
+                    opacity: addingWater ? 0.6 : pressed && !waterFull ? 0.85 : 1,
                   },
                 ]}
               >
                 <Text style={{ color: '#fff', fontWeight: '700' }}>
-                  {water.totalMl >= water.goalMl ? strings.waterFull : strings.addWater}
+                  {waterFull ? strings.waterFull : strings.addWater}
                 </Text>
               </Pressable>
             </View>
 
-            <View style={styles.sectionHead}>
-              <Text style={[styles.sectionTitle, { color: c.text }]}>{mealsTitle}</Text>
+            <View style={[styles.sectionHead, styles.section]}>
+              <Text style={[styles.sectionTitle, { color: c.text }, androidTextFix]}>{mealsTitle}</Text>
               <Pressable onPress={() => router.push('/(tabs)/diary')} hitSlop={8}>
-                <Text style={[styles.seeAll, { color: c.primary }]}>{strings.seeAll}</Text>
+                <Text style={[styles.seeAll, { color: c.primary }, androidTextFix]}>{strings.seeAll}</Text>
               </Pressable>
             </View>
 
             <View
               style={[
                 styles.card,
-                { backgroundColor: c.card, borderColor: c.border, paddingVertical: 4 },
+                styles.section,
                 softShadow('sm'),
+                { backgroundColor: c.card, borderColor: c.border, paddingVertical: 4 },
               ]}
             >
               {todayFoods.length === 0 ? (
@@ -387,7 +735,7 @@ export default function HomeScreen() {
                   </View>
                   <Text style={[styles.emptyTitle, { color: c.text }]}>{strings.noFoodLogged}</Text>
                   <Text style={[styles.emptySub, { color: c.textMuted }]}>
-                    Skaner orqali taom qo‘shing
+                    {strings.scanFoodDesc}
                   </Text>
                 </View>
               ) : (
@@ -431,7 +779,7 @@ export default function HomeScreen() {
                           {mealTitle(row.mealType)} · {row.weightGrams}g
                         </Text>
                         <Text style={[styles.foodMacros, { color: c.textSecondary }]}>
-                          Oqsil {row.protein}g · Uglevod {row.carbs}g · Yog‘ {row.fat}g
+                          {strings.protein} {row.protein}g · {strings.carbs} {row.carbs}g · {strings.fat} {row.fat}g
                         </Text>
                       </View>
                       <ChevronRight color={c.textMuted} size={16} />
@@ -440,14 +788,14 @@ export default function HomeScreen() {
                 })
               )}
             </View>
-          </FadeIn>
+          </View>
         )}
       </ScrollView>
 
       <CustomModal
         visible={detail != null}
         onClose={() => setDetail(null)}
-        title="Taom ma’lumoti"
+        title={strings.foodInfoTitle}
       >
         {detail ? (
           <View style={styles.detail}>
@@ -490,12 +838,14 @@ export default function HomeScreen() {
                 { backgroundColor: c.primary, opacity: pressed ? 0.9 : 1 },
               ]}
             >
-              <Text style={styles.detailBtnText}>Kundalikda ochish</Text>
+              <Text style={styles.detailBtnText}>{strings.openInDiary}</Text>
             </Pressable>
           </View>
         ) : null}
       </CustomModal>
-    </SafeAreaView>
+
+      <StatusBarScrim color={c.background} />
+    </View>
   );
 }
 
@@ -520,30 +870,13 @@ function MacroChip({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  scroll: { flex: 1 },
   content: {
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.sm,
-    gap: Spacing.lg,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    marginBottom: Spacing.xs,
+  section: {
+    marginBottom: Spacing.lg,
   },
-  hello: { fontSize: FontSize.sm, fontWeight: '500' },
-  name: { fontSize: FontSize.xxl, fontWeight: '700', letterSpacing: -0.6, marginTop: 2 },
-  date: { fontSize: FontSize.sm, marginTop: 2 },
-  avatarBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImg: { width: 48, height: 48 },
   stripWrap: {
     marginHorizontal: -Spacing.xl,
   },
@@ -558,6 +891,70 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     letterSpacing: 0.2,
   },
+  aiHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  dailyAlert: {
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    marginBottom: Spacing.sm,
+  },
+  dailyAlertText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    lineHeight: 19,
+  },
+  dailyDisclaimer: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  aiRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  aiCard: {
+    flex: 1,
+    padding: Spacing.lg,
+  },
+  aiCardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  aiIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proBadge: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  proBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  aiTitle: {
+    fontSize: FontSize.md,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  aiSub: {
+    fontSize: FontSize.xs,
+    lineHeight: 16,
+  },
   weekHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -569,39 +966,45 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     height: 80,
-    gap: 4,
   },
-  weekCol: { flex: 1, alignItems: 'center', gap: 4 },
-  weekBar: { width: '70%', borderRadius: 6, minHeight: 4 },
-  waterRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  weekCol: { flex: 1, alignItems: 'center' },
+  weekBar: { width: '70%', borderRadius: 6, minHeight: 4, marginBottom: 4 },
+  waterRow: { flexDirection: 'row', alignItems: 'center' },
   waterBtn: {
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: Radius.full,
+    marginLeft: Spacing.md,
   },
   ringRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xl,
     marginBottom: Spacing.xl,
   },
-  sideStats: { flex: 1, gap: Spacing.md },
-  statBlock: { gap: 2 },
-  statVal: { fontSize: FontSize.xl, fontWeight: '700', letterSpacing: -0.5 },
-  statLabel: { fontSize: FontSize.xs, fontWeight: '500' },
-  statDivider: { height: StyleSheet.hairlineWidth },
+  sideStats: { flex: 1, marginLeft: Spacing.xl },
+  statBlock: { marginVertical: 6 },
+  statVal: {
+    fontSize: FontSize.xl,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    ...androidTextFix,
+  },
+  statLabel: { fontSize: FontSize.xs, fontWeight: '500', marginTop: 2, ...androidTextFix },
+  statDivider: { height: StyleSheet.hairlineWidth, marginVertical: 8 },
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: Spacing.xs,
   },
-  sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', letterSpacing: -0.3 },
+  sectionTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
   seeAll: { fontSize: FontSize.sm, fontWeight: '600' },
   empty: {
     alignItems: 'center',
     paddingVertical: Spacing.xxl,
-    gap: Spacing.sm,
   },
   emptyIcon: {
     width: 52,
@@ -609,20 +1012,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: Spacing.md,
   },
-  emptyTitle: { fontSize: FontSize.md, fontWeight: '600' },
+  emptyTitle: { fontSize: FontSize.md, fontWeight: '600', marginBottom: 4 },
   emptySub: { fontSize: FontSize.sm },
   foodRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
     paddingVertical: Spacing.md,
   },
   foodImg: {
     width: 56,
     height: 56,
     borderRadius: 14,
+    marginRight: Spacing.md,
   },
   foodImgPlaceholder: {
     width: 56,
@@ -630,18 +1033,25 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  foodName: { fontSize: FontSize.md, fontWeight: '700' },
-  foodMeta: { fontSize: FontSize.xs, marginTop: 2 },
-  foodMacros: { fontSize: 11, marginTop: 3 },
+  foodName: { fontSize: FontSize.md, fontWeight: '700', ...androidTextFix },
+  foodMeta: { fontSize: FontSize.xs, marginTop: 2, ...androidTextFix },
+  foodMacros: { fontSize: 11, marginTop: 3, ...androidTextFix },
   foodRight: { alignItems: 'flex-end', minWidth: 48 },
-  foodKcal: { fontSize: FontSize.lg, fontWeight: '800', letterSpacing: -0.4 },
-  foodKcalUnit: { fontSize: 10, fontWeight: '500' },
-  detail: { alignItems: 'center', gap: Spacing.md },
+  foodKcal: {
+    fontSize: FontSize.lg,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    ...androidTextFix,
+  },
+  foodKcalUnit: { fontSize: 10, fontWeight: '500', ...androidTextFix },
+  detail: { alignItems: 'center' },
   detailImg: {
     width: '100%',
     height: 160,
     borderRadius: Radius.lg,
+    marginBottom: Spacing.md,
   },
   detailImgPlaceholder: {
     width: '100%',
@@ -649,38 +1059,45 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: Spacing.md,
   },
   detailName: {
     fontSize: FontSize.xl,
     fontWeight: '700',
     textAlign: 'center',
     letterSpacing: -0.3,
+    ...androidTextFix,
   },
-  detailMeal: { fontSize: FontSize.sm, marginTop: -4 },
+  detailMeal: { fontSize: FontSize.sm, marginTop: 4, marginBottom: Spacing.md, ...androidTextFix },
   detailCalBox: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 6,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderRadius: Radius.lg,
+    marginBottom: Spacing.md,
   },
-  detailCal: { fontSize: 32, fontWeight: '800', letterSpacing: -1 },
-  detailCalUnit: { fontSize: FontSize.md, fontWeight: '600' },
+  detailCal: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1,
+    ...androidTextFix,
+  },
+  detailCalUnit: { fontSize: FontSize.md, fontWeight: '600', marginLeft: 6, ...androidTextFix },
   detailMacros: {
     flexDirection: 'row',
-    gap: Spacing.sm,
     width: '100%',
+    marginBottom: Spacing.md,
   },
   chip: {
     flex: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
-    gap: 2,
+    marginHorizontal: 4,
   },
-  chipVal: { fontSize: FontSize.md, fontWeight: '700' },
-  chipLabel: { fontSize: 11, fontWeight: '500' },
+  chipVal: { fontSize: FontSize.md, fontWeight: '700', ...androidTextFix },
+  chipLabel: { fontSize: 11, fontWeight: '500', marginTop: 2, ...androidTextFix },
   detailBtn: {
     width: '100%',
     height: 48,
@@ -689,5 +1106,68 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: Spacing.sm,
   },
-  detailBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: '700' },
+  detailBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: '700', ...androidTextFix },
+  feastBannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  feastBannerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feastBannerTitle: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    ...androidTextFix,
+  },
+  feastBannerSubtitle: {
+    fontSize: FontSize.xs,
+    marginTop: 2,
+    ...androidTextFix,
+  },
+  feastBalanceBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: Radius.md,
+  },
+  feastBalanceBtnText: {
+    color: '#FFFFFF',
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    ...androidTextFix,
+  },
+  balanceHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
+  feastBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  feastBannerFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.sm,
+  },
+  feastDetailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  feastDetailsText: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    ...androidTextFix,
+  },
 });

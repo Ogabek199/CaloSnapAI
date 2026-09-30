@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsPositive, IsString, Max } from 'class-validator';
 
 export class UpdateScanItemDto {
   @ApiPropertyOptional({
@@ -16,6 +16,7 @@ export class UpdateScanItemDto {
   })
   @IsNumber()
   @IsPositive()
+  @Max(5000)
   @IsOptional()
   weightGrams?: number;
 }

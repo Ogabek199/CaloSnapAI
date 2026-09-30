@@ -1,13 +1,68 @@
-import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  PayloadTooLargeException,
+  Post,
+  Query,
+  Request,
+  UnsupportedMediaTypeException,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiOperation, ApiParam, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { FoodService, mapFoodForClient } from './food.service';
 import { GetFoodsQueryDto } from './dto/get-foods-query.dto';
 import { FoodResponseDto } from './dto/food-response.dto';
+import { CreateBarcodeFoodDto } from './dto/create-barcode-food.dto';
+import { GeminiService } from '../ai/gemini.service';
+import { ScanImageBodyDto } from '../food-scan/dto/scan-image-body.dto';
+import { detectImageMime, MAX_IMAGE_BYTES } from '../food-scan/image-validation';
 
 @ApiTags('Foods')
 @Controller('foods')
 export class FoodController {
-  constructor(private readonly foodService: FoodService) {}
+  constructor(
+    private readonly foodService: FoodService,
+    private readonly geminiService: GeminiService,
+  ) {}
+
+  @Post('nutrition-label')
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(AuthGuard('jwt'))
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @ApiOperation({ summary: 'Qadoqdagi ozuqaviy qiymat yorlig‘ini AI orqali o‘qish' })
+  async readNutritionLabel(@Body() body: ScanImageBodyDto) {
+    const raw = body?.imageBase64?.includes(';base64,')
+      ? body.imageBase64.split(';base64,')[1]
+      : body?.imageBase64;
+    const buffer = raw ? Buffer.from(raw, 'base64') : undefined;
+    if (!buffer || buffer.length === 0) {
+      throw new BadRequestException('Iltimos, yorliq rasmini yuklang');
+    }
+    if (buffer.length > MAX_IMAGE_BYTES) {
+      throw new PayloadTooLargeException('Rasm hajmi 8 MB dan oshmasligi kerak');
+    }
+    const mime = detectImageMime(buffer);
+    if (!mime) {
+      throw new UnsupportedMediaTypeException('Faqat JPEG, PNG, WebP yoki HEIC rasmlar qabul qilinadi');
+    }
+    return this.geminiService.readNutritionLabel(buffer.toString('base64'), mime);
+  }
+
+  @Post('barcode')
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(AuthGuard('jwt'))
+  @Throttle({ default: { ttl: 60 * 60_000, limit: 30 } })
+  @ApiOperation({ summary: 'Bazada yo‘q qadoqlangan mahsulotni shtrix-kodi bilan qo‘shish' })
+  async createBarcodeFood(@Request() req: any, @Body() body: CreateBarcodeFoodDto) {
+    const food = await this.foodService.createUserBarcodeFood(req.user.id, body);
+    return mapFoodForClient(food);
+  }
 
   @Get()
   @ApiOperation({

@@ -1,9 +1,10 @@
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Put, Body, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { GoalsService } from './goals.service';
 import { CalculateGoalsDto } from './dto/calculate-goals.dto';
 import { GoalsCalculationResultDto, SaveGoalsResponseDto } from './dto/goals-response.dto';
+import { UpdateHealthConditionsDto } from './dto/health-conditions.dto';
 
 @ApiTags('Goals & Nutrition')
 @Controller('goals')
@@ -46,5 +47,13 @@ export class GoalsController {
     @Body() body: CalculateGoalsDto,
   ) {
     return this.goalsService.updateUserGoals(req.user.id, body);
+  }
+
+  @Put('health-conditions')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Sog‘liq holatlarini saqlash (diabet, qon bosimi va h.k.)' })
+  updateHealthConditions(@Request() req: any, @Body() body: UpdateHealthConditionsDto) {
+    return this.goalsService.updateHealthConditions(req.user.id, body.conditions);
   }
 }

@@ -5,25 +5,30 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Camera, ChevronRight, Pencil, Plus, Trash2, Utensils } from 'lucide-react-native';
+import { ChevronRight, Pencil, Plus, Trash2, Utensils } from 'lucide-react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppStore } from '../../src/store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useAppStore, usePalette, useStrings } from '../../src/store/useAppStore';
+import { foodName, intlLocale } from '../../src/shared/i18n/languages';
 import { useDiaryStore } from '../../src/store/useDiaryStore';
+import { useFeastStore, applyFeastAdjustment } from '../../src/store/useFeastStore';
 import { tabBarScrollPadding } from '../../src/shared/theme/layout';
-import { FontSize, Radius, Spacing, softShadow } from '../../src/shared/theme/spacing';
+import { FontSize, Radius, Spacing, softShadow, androidTextFix } from '../../src/shared/theme/spacing';
 import { MEAL_CONFIG_LIST, MEAL_CONFIGS, type MealType } from '../../src/features/meals/meal-config';
 import { useDiaryItemEditor } from '../../src/features/diary/useDiaryItemEditor';
 import { DiaryItemEditorModals } from '../../src/features/diary/DiaryItemEditorModals';
-import { AndroidRefreshBanner, IOSRefreshControl } from '../../src/shared/ui/IOSRefreshControl';
 import { CustomModal } from '../../src/shared/ui/CustomModal';
 import { DayDateStrip } from '../../src/shared/ui/DayDateStrip';
-import { DiarySkeleton, FadeIn } from '../../src/shared/ui/Skeleton';
+import { DiarySkeleton } from '../../src/shared/ui/Skeleton';
 import { RemoteImage } from '../../src/shared/ui/RemoteImage';
-
+import { clearApiCache } from '../../src/shared/api/api-client';
 const PAGE_SIZE = 6;
+
+const dropLeadingEmoji = (s: string) => s.replace(/^[^A-Za-z\u00C0-\u024F\u0400-\u04FF\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF0-9]+/, '');
 
 type FoodRow = {
   id: string;
@@ -42,7 +47,8 @@ type FoodRow = {
 export default function DiaryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t, theme, themeMode, language } = useAppStore();
+  const themeMode = useAppStore((s) => s.themeMode);
+  const language = useAppStore((s) => s.language);
   const {
     todaySummary,
     calorieGoal,
@@ -52,20 +58,33 @@ export default function DiaryScreen() {
     selectedDate,
     setSelectedDate,
     isSelectedToday,
-  } = useDiaryStore();
+  } = useDiaryStore(
+    useShallow((s) => ({
+      todaySummary: s.todaySummary,
+      calorieGoal: s.calorieGoal,
+      refreshDiary: s.refreshDiary,
+      isLoading: s.isLoading,
+      hasLoaded: s.hasLoaded,
+      selectedDate: s.selectedDate,
+      setSelectedDate: s.setSelectedDate,
+      isSelectedToday: s.isSelectedToday,
+    })),
+  );
   const editor = useDiaryItemEditor();
 
   const [refreshing, setRefreshing] = useState(false);
   const [detail, setDetail] = useState<FoodRow | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const c = theme();
-  const strings = t();
+  const c = usePalette();
+  const strings = useStrings();
   const isDark = themeMode === 'dark';
+  const mealTitle = (type: MealType) =>
+    dropLeadingEmoji(strings[type.toLowerCase() as 'breakfast' | 'lunch' | 'dinner' | 'snack']);
   const showSkeleton = isLoading && !hasLoaded;
   const refreshTint = isDark ? '#FFFFFF' : c.primary;
   const canEdit = isSelectedToday();
-  const locale = language === 'ru' ? 'ru-RU' : language === 'en' ? 'en-US' : 'uz-UZ';
+  const locale = intlLocale(language);
 
   useEffect(() => {
     refreshDiary();
@@ -75,6 +94,7 @@ export default function DiaryScreen() {
     setRefreshing(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      clearApiCache();
       await refreshDiary();
     } finally {
       setRefreshing(false);
@@ -82,30 +102,13 @@ export default function DiaryScreen() {
   };
 
   const total = todaySummary?.totalNutrition || { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  const goal = todaySummary?.goalCalories || calorieGoal || 2150;
+  const feastAdjustment = useFeastStore((s) => s.getActiveAdjustmentForDate(selectedDate));
+  const goal = applyFeastAdjustment(
+    todaySummary?.goalCalories || calorieGoal || 2150,
+    feastAdjustment,
+  );
   const consumed = Math.round(total.calories || 0);
   const remaining = Math.max(0, Math.round(goal - consumed));
-
-  const dateLabel = (() => {
-    if (isSelectedToday()) {
-      return new Date().toLocaleDateString(locale, {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      });
-    }
-    const [y, m, d] = selectedDate.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(locale, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    });
-  })();
-
-  const openScan = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push('/(tabs)/scan');
-  };
 
   const openManualAdd = () => {
     if (!canEdit) {
@@ -122,7 +125,7 @@ export default function DiaryScreen() {
         (item: any): FoodRow => ({
           id: item.id,
           raw: item,
-          name: item.food?.nameUz || item.food?.name || 'Taom',
+          name: foodName(item.food, language),
           weightGrams: item.weightGrams || 0,
           calories: Math.round(item.nutrition?.calories || 0),
           protein: Math.round((item.nutrition?.protein || 0) * 10) / 10,
@@ -139,7 +142,7 @@ export default function DiaryScreen() {
         mealKcal: Math.round(meal?.totalNutrition?.calories || 0),
       };
     });
-  }, [todaySummary]);
+  }, [todaySummary, language]);
 
   const totalItems = foodsByMeal.reduce((n, g) => n + g.items.length, 0);
 
@@ -177,33 +180,13 @@ export default function DiaryScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={['top']}>
-      <View style={styles.topBar}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: c.text }]}>{strings.diaryTitle}</Text>
-          <Text style={[styles.date, { color: c.textSecondary }]}>{dateLabel}</Text>
-        </View>
-        <Pressable
-          onPress={openManualAdd}
-          disabled={!canEdit}
-          style={({ pressed }) => [
-            styles.addBtn,
-            {
-              backgroundColor: c.primaryBg,
-              opacity: !canEdit ? 0.4 : pressed ? 0.85 : 1,
-            },
-          ]}
-        >
-          <Plus color={c.primary} size={16} strokeWidth={2.4} />
-          <Text style={[styles.addBtnText, { color: c.primary }]}>{strings.addFood}</Text>
-        </Pressable>
-      </View>
-
       <View style={styles.stripWrap}>
         <DayDateStrip
           selectedDate={selectedDate}
           onSelect={setSelectedDate}
           locale={locale}
           primaryColor={c.primary}
+          primaryBg={c.primaryBg}
           textColor={c.text}
           mutedColor={c.textMuted}
           cardColor={c.card}
@@ -212,24 +195,25 @@ export default function DiaryScreen() {
       </View>
 
       <ScrollView
+        style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: tabBarScrollPadding(insets.bottom) }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <IOSRefreshControl
+          <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={refreshTint}
-            backgroundColor={c.card}
+            colors={[c.primary]}
+            progressBackgroundColor={c.card}
           />
         }
       >
-        <AndroidRefreshBanner refreshing={refreshing} tintColor={refreshTint} />
 
         {showSkeleton ? (
           <DiarySkeleton />
         ) : (
-          <FadeIn style={{ gap: Spacing.lg }}>
-            <View style={[styles.summary, { backgroundColor: c.card, borderColor: c.border }, softShadow('sm')]}>
+          <View>
+            <View style={[styles.summary, styles.section, softShadow('sm'), { backgroundColor: c.card, borderColor: c.border }]}>
               <SummaryCell value={consumed} label={strings.consumed} color={c.text} muted={c.textMuted} />
               <View style={[styles.vDivider, { backgroundColor: c.border }]} />
               <SummaryCell value={goal} label={strings.goalKcal} color={c.secondary} muted={c.textMuted} />
@@ -238,13 +222,13 @@ export default function DiaryScreen() {
             </View>
 
             {totalItems === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: c.card, borderColor: c.border }, softShadow('sm')]}>
+              <View style={[styles.emptyCard, styles.section, softShadow('sm'), { backgroundColor: c.card, borderColor: c.border }]}>
                 <View style={[styles.emptyIcon, { backgroundColor: c.cardHover }]}>
                   <Utensils color={c.textMuted} size={24} />
                 </View>
                 <Text style={[styles.emptyTitle, { color: c.text }]}>{strings.noFoodLogged}</Text>
                 <Text style={[styles.emptySub, { color: c.textMuted }]}>
-                  {canEdit ? 'Skaner orqali taom qo‘shing' : 'Bu kunda taom qayd etilmagan'}
+                  {canEdit ? strings.scanFoodDesc : strings.onlyTodayEdit}
                 </Text>
                 {canEdit ? (
                   <Pressable
@@ -270,16 +254,16 @@ export default function DiaryScreen() {
                   return (
                     <View
                       key={config.type}
-                      style={[styles.mealCard, { backgroundColor: c.card, borderColor: c.border }, softShadow('sm')]}
+                      style={[styles.mealCard, styles.section, softShadow('sm'), { backgroundColor: c.card, borderColor: c.border }]}
                     >
                       <View style={styles.mealHead}>
                         <View style={[styles.emojiBox, { backgroundColor: badgeBg }]}>
                           <Text style={{ fontSize: 18 }}>{config.emoji}</Text>
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={[styles.mealTitle, { color: c.text }]}>{config.title}</Text>
+                          <Text style={[styles.mealTitle, { color: c.text }]}>{mealTitle(config.type)}</Text>
                           <Text style={[styles.mealTime, { color: c.textMuted }]}>
-                            {fullCount} taom · {config.timeRange}
+                            {fullCount} · {config.type === 'SNACK' ? strings.snackTimeRange : config.timeRange}
                           </Text>
                         </View>
                         <Text style={[styles.mealKcal, { color: accent }]}>{mealKcal} kcal</Text>
@@ -318,7 +302,7 @@ export default function DiaryScreen() {
                               {row.weightGrams}g
                             </Text>
                             <Text style={[styles.foodMacros, { color: c.textSecondary }]}>
-                              Oqsil {row.protein}g · Uglevod {row.carbs}g · Yog‘ {row.fat}g
+                              {strings.protein} {row.protein}g · {strings.carbs} {row.carbs}g · {strings.fat} {row.fat}g
                             </Text>
                           </View>
                           <View style={styles.actions}>
@@ -335,25 +319,25 @@ export default function DiaryScreen() {
                     onPress={onLoadMore}
                     style={({ pressed }) => [
                       styles.loadMoreBtn,
+                      styles.section,
                       {
                         backgroundColor: c.card,
                         borderColor: c.border,
                         opacity: pressed ? 0.85 : 1,
                       },
-                      softShadow('sm'),
                     ]}
                   >
                     <Text style={[styles.loadMoreText, { color: c.primary }]}>
                       {strings.loadMore}
                     </Text>
                     <Text style={[styles.loadMoreMeta, { color: c.textMuted }]}>
-                      +{Math.min(PAGE_SIZE, remainingCount)} · {remainingCount} qoldi
+                      +{Math.min(PAGE_SIZE, remainingCount)} · {strings.remaining}: {remainingCount}
                     </Text>
                   </Pressable>
                 ) : null}
               </>
             )}
-          </FadeIn>
+          </View>
         )}
       </ScrollView>
 
@@ -362,7 +346,7 @@ export default function DiaryScreen() {
       <CustomModal
         visible={detail != null}
         onClose={() => setDetail(null)}
-        title="Taom ma’lumoti"
+        title={strings.foodInfoTitle}
       >
         {detail ? (
           <View style={styles.detail}>
@@ -383,7 +367,7 @@ export default function DiaryScreen() {
             )}
             <Text style={[styles.detailName, { color: c.text }]}>{detail.name}</Text>
             <Text style={[styles.detailMeal, { color: c.textMuted }]}>
-              {MEAL_CONFIGS[detail.mealType]?.title} · {detail.weightGrams} g
+              {mealTitle(detail.mealType)} · {detail.weightGrams} g
             </Text>
 
             <View style={[styles.detailCalBox, { backgroundColor: c.primaryBg }]}>
@@ -408,7 +392,7 @@ export default function DiaryScreen() {
                   style={[styles.detailActionBtn, { backgroundColor: c.cardHover }]}
                 >
                   <Pencil color={c.text} size={16} />
-                  <Text style={[styles.detailActionText, { color: c.text }]}>Tahrirlash</Text>
+                  <Text style={[styles.detailActionText, { color: c.text }]}>{strings.changeFood}</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => {
@@ -419,7 +403,7 @@ export default function DiaryScreen() {
                   style={[styles.detailActionBtn, { backgroundColor: c.dangerBg }]}
                 >
                   <Trash2 color={c.danger} size={16} />
-                  <Text style={[styles.detailActionText, { color: c.danger }]}>O‘chirish</Text>
+                  <Text style={[styles.detailActionText, { color: c.danger }]}>{strings.removeItem}</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -472,31 +456,16 @@ function Chip({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.md,
-    gap: Spacing.md,
-  },
-  title: { fontSize: FontSize.xl, fontWeight: '700', letterSpacing: -0.4 },
-  date: { fontSize: FontSize.sm, marginTop: 2, textTransform: 'capitalize' },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: Radius.full,
-  },
-  addBtnText: { fontSize: FontSize.sm, fontWeight: '600' },
+  scroll: { flex: 1 },
   stripWrap: {
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
   },
   content: {
     paddingHorizontal: Spacing.xl,
-    gap: Spacing.lg,
+  },
+  section: {
+    marginBottom: Spacing.lg,
   },
   summary: {
     flexDirection: 'row',
@@ -504,9 +473,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: Spacing.lg,
   },
-  summaryCell: { flex: 1, alignItems: 'center', gap: 4 },
-  summaryVal: { fontSize: FontSize.xl, fontWeight: '700', letterSpacing: -0.5 },
-  summaryLabel: { fontSize: 11, fontWeight: '500' },
+  summaryCell: { flex: 1, alignItems: 'center' },
+  summaryVal: { fontSize: FontSize.xl, fontWeight: '700', letterSpacing: -0.5, ...androidTextFix },
+  summaryLabel: { fontSize: 11, fontWeight: '500', marginTop: 4, ...androidTextFix },
   vDivider: { width: StyleSheet.hairlineWidth },
   emptyCard: {
     borderRadius: Radius.xl,
@@ -563,9 +532,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  mealTitle: { fontSize: FontSize.md, fontWeight: '700' },
-  mealTime: { fontSize: FontSize.xs, marginTop: 2 },
-  mealKcal: { fontSize: FontSize.sm, fontWeight: '700' },
+  mealTitle: { fontSize: FontSize.md, fontWeight: '700', ...androidTextFix },
+  mealTime: { fontSize: FontSize.xs, marginTop: 2, ...androidTextFix },
+  mealKcal: { fontSize: FontSize.sm, fontWeight: '700', ...androidTextFix },
   foodRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -580,9 +549,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  foodName: { fontSize: FontSize.md, fontWeight: '700' },
-  foodMeta: { fontSize: FontSize.xs, marginTop: 2 },
-  foodMacros: { fontSize: 11, marginTop: 3 },
+  foodName: { fontSize: FontSize.md, fontWeight: '700', ...androidTextFix },
+  foodMeta: { fontSize: FontSize.xs, marginTop: 2, ...androidTextFix },
+  foodMacros: { fontSize: 11, marginTop: 3, ...androidTextFix },
   actions: { alignItems: 'center', gap: 6 },
   iconBtn: {
     width: 32,

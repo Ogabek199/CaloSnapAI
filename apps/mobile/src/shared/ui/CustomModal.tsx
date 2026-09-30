@@ -5,54 +5,96 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TouchableWithoutFeedback,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
   Dimensions,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { X } from 'lucide-react-native';
-import { useAppStore } from '../../store/useAppStore';
+import { usePalette, useStrings } from '../../store/useAppStore';
 
 const { width } = Dimensions.get('window');
 
-interface CustomModalProps {
+export interface CustomModalProps {
   visible: boolean;
   onClose: () => void;
-  title: string;
+  title?: string;
   children: React.ReactNode;
+  headerRight?: React.ReactNode;
+  hideHeader?: boolean;
+  cardStyle?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
+  dismissible?: boolean;
 }
 
-export function CustomModal({ visible, onClose, title, children }: CustomModalProps) {
-  const { theme } = useAppStore();
-  const currentTheme = theme();
+export function CustomModal({
+  visible,
+  onClose,
+  title,
+  children,
+  headerRight,
+  hideHeader = false,
+  cardStyle,
+  contentStyle,
+  dismissible = true,
+}: CustomModalProps) {
+  const currentTheme = usePalette();
+  const strings = useStrings();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.backdrop}>
-          <TouchableWithoutFeedback>
-            <View
-              style={[
-                styles.modalCard,
-                {
-                  backgroundColor: currentTheme.card,
-                  borderColor: currentTheme.border,
-                },
-              ]}
-            >
-              <View style={[styles.header, { borderBottomColor: currentTheme.border }]}>
-                <Text style={[styles.title, { color: currentTheme.text }]}>{title}</Text>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={dismissible ? onClose : undefined}
+      statusBarTranslucent
+    >
+      <KeyboardAvoidingView
+        style={styles.backdrop}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Backdrop is a sibling (not a wrapper) so it never steals scroll gestures from the card. */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={dismissible ? onClose : undefined}
+          accessible={false}
+        />
+        <View
+          style={[
+            styles.modalCard,
+            {
+              backgroundColor: currentTheme.card,
+              borderColor: currentTheme.border,
+            },
+            cardStyle,
+          ]}
+        >
+          {!hideHeader && (
+            <View style={[styles.header, { borderBottomColor: currentTheme.border }]}>
+              <Text style={[styles.title, { color: currentTheme.text }]} numberOfLines={1}>
+                {title || ''}
+              </Text>
+              <View style={styles.headerRightArea}>
+                {headerRight}
                 <TouchableOpacity
                   style={[styles.closeButton, { backgroundColor: currentTheme.cardHover }]}
                   onPress={onClose}
+                  accessibilityRole="button"
+                  accessibilityLabel={strings.close}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
                 >
                   <X color={currentTheme.textMuted} size={18} />
                 </TouchableOpacity>
               </View>
-
-              <View style={styles.body}>{children}</View>
             </View>
-          </TouchableWithoutFeedback>
+          )}
+
+          <View style={[styles.body, contentStyle]}>{children}</View>
         </View>
-      </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -67,6 +109,8 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: Math.min(width - 32, 400),
+    maxHeight: '90%',
+    flexShrink: 1,
     borderRadius: 16,
     borderWidth: 1,
     shadowColor: '#000000',
@@ -74,7 +118,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 6,
-    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
@@ -87,6 +130,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: '700',
+    flex: 1,
+    marginRight: 12,
+  },
+  headerRightArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   closeButton: {
     width: 32,
@@ -97,5 +147,6 @@ const styles = StyleSheet.create({
   },
   body: {
     padding: 20,
+    flexShrink: 1,
   },
 });

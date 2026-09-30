@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, Max } from 'class-validator';
 import { MealType } from '@prisma/client';
 
 export class AddMealItemDto {
@@ -26,6 +26,7 @@ export class AddMealItemDto {
   })
   @IsNumber()
   @IsPositive({ message: 'Vazn musbat son bo‘lishi kerak' })
+  @Max(5000)
   weightGrams: number;
 
   @ApiPropertyOptional({

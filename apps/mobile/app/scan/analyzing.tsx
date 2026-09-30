@@ -22,7 +22,7 @@ import {
   Scale,
   Salad,
 } from 'lucide-react-native';
-import { useAppStore } from '../../src/store/useAppStore';
+import { useAppStore, usePalette, useStrings } from '../../src/store/useAppStore';
 import { useScanStore } from '../../src/store/useScanStore';
 import { FontSize, Radius, Spacing } from '../../src/shared/theme/spacing';
 
@@ -30,25 +30,30 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const PHOTO_H = Math.min(280, SCREEN_W * 0.72);
 
 const STEPS = [
-  { title: 'Rasm yuklanmoqda', icon: Camera },
-  { title: 'Taom aniqlanmoqda', icon: ScanSearch },
-  { title: 'Porsiya baholanmoqda', icon: Scale },
-  { title: 'Kaloriya hisoblanmoqda', icon: Salad },
-];
+  { titleKey: 'analyzeStepUpload', icon: Camera },
+  { titleKey: 'analyzeStepDetect', icon: ScanSearch },
+  { titleKey: 'analyzeStepPortion', icon: Scale },
+  { titleKey: 'analyzeStepCalories', icon: Salad },
+] as const;
 
-const TIPS = [
-  'Keyingi sahifada og‘irlikni o‘zingizga moslab o‘zgartira olasiz.',
-  'Milliy taomlar — palov, somsa, manti — retsept asosida hisoblanadi.',
-  'Yaxshi yorug‘likda surat aniqroq natija beradi.',
-];
+const TIPS = ['analyzeTipAdjust', 'analyzeTipNational', 'analyzeTipLighting'] as const;
 
 export default function AnalyzingScreen() {
   const router = useRouter();
-  const { theme, themeMode } = useAppStore();
-  const { imageUri } = useScanStore();
+  const themeMode = useAppStore((s) => s.themeMode);
+  const imageUri = useScanStore((s) => s.imageUri);
   const cancelAnalysis = useScanStore((s) => s.cancelAnalysis);
-  const c = theme();
+  const c = usePalette();
+  const strings = useStrings();
   const isDark = themeMode === 'dark';
+
+  useEffect(
+    () => () => {
+      // Dismissed via hardware back / gesture while the request is still in flight.
+      if (useScanStore.getState().isAnalyzing) useScanStore.getState().cancelAnalysis();
+    },
+    [],
+  );
 
   const accent = c.primary;
   const accentSoft = c.primaryBg;
@@ -183,6 +188,7 @@ export default function AnalyzingScreen() {
   );
 
   const handleCancel = () => {
+    if (useScanStore.getState().analysisCancelled) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     cancelAnalysis();
     router.back();
@@ -230,7 +236,7 @@ export default function AnalyzingScreen() {
 
           <View style={[styles.brandChip, { backgroundColor: accentSoft, borderColor: `${accent}33` }]}>
             <Sparkles color={accent} size={13} strokeWidth={2.2} />
-            <Text style={[styles.brandText, { color: accent }]}>Taom AI</Text>
+            <Text style={[styles.brandText, { color: accent }]}>CaloSnap</Text>
           </View>
 
           <View style={{ width: 40 }} />
@@ -259,7 +265,7 @@ export default function AnalyzingScreen() {
               <LinearGradient
                 colors={['rgba(0,0,0,0.08)', 'transparent', 'transparent', 'rgba(0,0,0,0.75)']}
                 locations={[0, 0.25, 0.72, 1]}
-                style={StyleSheet.absoluteFillObject}
+                style={StyleSheet.absoluteFill}
               />
               {/* Cover residual camera date/time stamp at bottom */}
               <View style={styles.stampCover} />
@@ -284,16 +290,16 @@ export default function AnalyzingScreen() {
               <View style={styles.liveWrap} pointerEvents="none">
                 <View style={[styles.livePill, { backgroundColor: 'rgba(8,12,16,0.72)' }]}>
                   <View style={[styles.liveDot, { backgroundColor: accent }]} />
-                  <Text style={styles.liveLabel}>Tahlil davom etmoqda</Text>
+                  <Text style={styles.liveLabel}>{strings.analysisInProgress}</Text>
                 </View>
               </View>
             </View>
           </Animated.View>
 
           <View style={styles.titleBlock}>
-            <Text style={[styles.title, { color: text }]}>Taom tahlil qilinmoqda</Text>
+            <Text style={[styles.title, { color: text }]}>{strings.analyzingTitle}</Text>
             <Text style={[styles.subtitle, { color: secondary }]}>
-              Surat o‘qilmoqda — kaloriya va BJU hisoblanadi
+              {strings.analyzingSubtitle}
             </Text>
           </View>
 
@@ -320,7 +326,7 @@ export default function AnalyzingScreen() {
             </View>
             <View style={styles.progressMeta}>
               <Text style={[styles.pct, { color: accent }]}>{pct}%</Text>
-              <Text style={[styles.wait, { color: muted }]}>Bir necha soniya…</Text>
+              <Text style={[styles.wait, { color: muted }]}>{strings.analyzingWait}</Text>
             </View>
           </View>
 
@@ -332,7 +338,7 @@ export default function AnalyzingScreen() {
               const iconColor = done || current ? accent : muted;
 
               return (
-                <View key={step.title} style={styles.stepRow}>
+                <View key={step.titleKey} style={styles.stepRow}>
                   <View style={styles.stepRail}>
                     <View
                       style={[
@@ -370,12 +376,12 @@ export default function AnalyzingScreen() {
                         },
                       ]}
                     >
-                      {step.title}
+                      {strings[step.titleKey]}
                     </Text>
                     {current ? (
-                      <Text style={[styles.stepHint, { color: accent }]}>Hozir</Text>
+                      <Text style={[styles.stepHint, { color: accent }]}>{strings.stepNow}</Text>
                     ) : done ? (
-                      <Text style={[styles.stepHint, { color: muted }]}>Tayyor</Text>
+                      <Text style={[styles.stepHint, { color: muted }]}>{strings.stepDone}</Text>
                     ) : null}
                   </View>
                 </View>
@@ -396,7 +402,7 @@ export default function AnalyzingScreen() {
             <View style={[styles.tipMark, { backgroundColor: accentSoft }]}>
               <Sparkles color={accent} size={14} />
             </View>
-            <Text style={[styles.tipText, { color: secondary }]}>{TIPS[tipIndex]}</Text>
+            <Text style={[styles.tipText, { color: secondary }]}>{strings[TIPS[tipIndex]]}</Text>
           </Animated.View>
         </View>
       </SafeAreaView>

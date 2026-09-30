@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "title": "CaloSnap : compteur de calories IA à partir d’une photo",
+    "description": "Photographiez votre repas : l’IA de CaloSnap calcule calories, protéines, glucides et lipides en quelques secondes. Journal alimentaire, scanner de codes-barres, Chef IA et Nutritionniste IA réunis dans une app simple."
+  },
+  "nav": {
+    "features": "Fonctionnalités",
+    "how": "Comment ça marche",
+    "ai": "Assistants IA",
+    "pro": "Pro",
+    "faq": "FAQ",
+    "download": "Télécharger",
+    "menu": "Menu",
+    "home": "Accueil"
+  },
+  "theme": {
+    "toggle": "Changer de thème",
+    "light": "Clair",
+    "dark": "Sombre"
+  },
+  "lang": {
+    "label": "Langue"
+  },
+  "hero": {
+    "badge": "Suivi nutritionnel propulsé par l’IA",
+    "title": "Une photo.",
+    "titleAccent": "Vos calories, en un instant.",
+    "subtitle": "Prenez votre repas en photo : l’IA de CaloSnap reconnaît les aliments, estime la portion et calcule calories et macros en quelques secondes. Plus de recherches manuelles, plus d’approximations.",
+    "note": "Téléchargement gratuit. Disponible en 9 langues."
+  },
+  "store": {
+    "downloadOn": "Télécharger dans l’",
+    "getItOn": "Disponible sur",
+    "soon": "Bientôt disponible"
+  },
+  "mockup": {
+    "balance": "Bilan calorique du jour",
+    "remaining": "Restant",
+    "consumed": "Consommé",
+    "goalKcal": "Objectif (kcal)",
+    "protein": "Protéines",
+    "carbs": "Glucides",
+    "fat": "Lipides",
+    "aiTools": "Assistants IA",
+    "chef": "Chef IA",
+    "chefSub": "Des recettes avec ce que vous avez",
+    "chat": "Nutritionniste IA",
+    "chatSub": "Conseils nutritionnels",
+    "water": "Eau",
+    "addWater": "+250 ml",
+    "todaysMeals": "Repas du jour",
+    "seeAll": "Tout",
+    "breakfast": "🍳 Petit-déjeuner",
+    "lunch": "🍲 Déjeuner",
+    "tabHome": "Accueil",
+    "tabDiary": "Journal",
+    "tabScan": "Scanner",
+    "tabProfile": "Profil",
+    "meal1": "Porridge aux fruits rouges",
+    "meal2": "Salade de poulet"
+  },
+  "features": {
+    "title": "Tout ce qu’il faut pour mieux manger",
+    "subtitle": "Une seule app pour noter vos repas, suivre vos progrès et atteindre votre objectif, sans les corvées.",
+    "scan": {
+      "title": "Scanner photo IA",
+      "text": "Reconnaît les plats, plusieurs aliments dans une même assiette et la taille des portions, puis calcule calories, protéines, glucides et lipides."
+    },
+    "barcode": {
+      "title": "Codes-barres et étiquettes",
+      "text": "Scannez le code-barres d’un produit ou photographiez son étiquette nutritionnelle : les valeurs sont remplies automatiquement."
+    },
+    "diary": {
+      "title": "Journal, eau et poids",
+      "text": "Retrouvez tous vos repas de la journée, suivez votre hydratation d’un simple geste et votre poids sur un graphique clair."
+    },
+    "goal": {
+      "title": "Objectif calorique personnalisé",
+      "text": "Votre objectif quotidien et vos macros sont calculés selon votre âge, votre taille, votre poids, votre activité et votre objectif."
+    },
+    "feast": {
+      "title": "Mode festin",
+      "text": "Un mariage ou un repas de fête ? Répartissez en douceur les calories en trop sur les jours suivants et gardez votre série."
+    },
+    "secure": {
+      "title": "Privé et sécurisé",
+      "text": "Verrouillez l’app avec Face ID ou votre empreinte digitale. Aucune publicité, et vos données ne sont jamais vendues."
+    }
+  },
+  "how": {
+    "title": "Comment ça marche",
+    "subtitle": "Noter un repas prend environ cinq secondes.",
+    "snap": {
+      "title": "Photographiez",
+      "text": "Prenez votre assiette en photo, scannez un code-barres ou choisissez une photo dans votre galerie."
+    },
+    "analyze": {
+      "title": "L’IA analyse",
+      "text": "L’IA identifie chaque aliment, estime son poids et calcule ses valeurs nutritionnelles."
+    },
+    "log": {
+      "title": "Ajoutez au journal",
+      "text": "Ajustez la portion si besoin et enregistrez. Votre progression du jour se met à jour instantanément."
+    }
+  },
+  "ai": {
+    "badge": "Assistants IA",
+    "title": "Un nutritionniste et un chef dans votre poche",
+    "subtitle": "Au-delà du comptage des calories, CaloSnap vous aide à choisir votre prochain repas.",
+    "chef": {
+      "title": "Chef IA",
+      "text": "Photographiez votre frigo ou listez vos ingrédients, et recevez 3 recettes saines adaptées à votre objectif, avec les calories par portion."
+    },
+    "nutritionist": {
+      "title": "Nutritionniste IA",
+      "text": "Posez toutes vos questions sur votre alimentation et obtenez des réponses basées sur votre objectif, votre apport quotidien et vos repas du jour."
+    },
+    "health": {
+      "title": "Alertes santé",
+      "text": "En cas de diabète, d’hypertension ou de cholestérol élevé, vos repas sont vérifiés et vous recevez une alerte bienveillante lorsqu’un aliment ne vous convient pas."
+    },
+    "disclaimer": "CaloSnap fournit des conseils généraux et ne remplace pas un avis médical. Suivez toujours les recommandations de votre médecin."
+  },
+  "pro": {
+    "badge": "CaloSnap Pro",
+    "title": "Libérez toute la puissance de l’IA",
+    "subtitle": "Les fonctionnalités essentielles sont gratuites. Pro supprime les limites et ajoute les assistants IA.",
+    "items": {
+      "scan": "Scans IA illimités et codes-barres internationaux",
+      "multi": "Plusieurs plats, voire une table entière, en une seule photo",
+      "chef": "Chef IA : des recettes saines avec ce que contient votre frigo",
+      "chat": "Chat personnel avec le Nutritionniste IA",
+      "health": "Alertes repas pour le diabète, la tension et le cholestérol",
+      "feast": "Mode festin et rééquilibrage après un écart"
+    },
+    "trial": "Essai gratuit de 3 jours",
+    "note": "Formules hebdomadaire, mensuelle et annuelle. Les prix sont affichés dans l’app, dans votre devise locale. Résiliez à tout moment dans les réglages de l’App Store ou de Google Play."
+  },
+  "faq": {
+    "title": "Questions fréquentes",
+    "accuracy": {
+      "q": "Quelle est la précision de l’estimation des calories ?",
+      "a": "Pour la plupart des repas du quotidien, l’IA s’approche des valeurs réelles, mais cela reste une estimation. Vous pouvez toujours corriger l’aliment ou le poids de la portion avant d’enregistrer."
+    },
+    "foods": {
+      "q": "Quels aliments sont reconnus ?",
+      "a": "Plats faits maison, cuisines du monde, fast-food, boissons et produits emballés. Pour les produits emballés, le scan du code-barres ou de l’étiquette est le plus précis."
+    },
+    "privacy": {
+      "q": "Mes données sont-elles en sécurité ?",
+      "a": "Vos données servent uniquement au fonctionnement de l’app. Nous n’affichons aucune publicité et ne vendons aucune donnée. Vous pouvez supprimer votre compte et toutes vos données depuis votre profil à tout moment."
+    },
+    "free": {
+      "q": "CaloSnap est-il gratuit ?",
+      "a": "Oui. Le journal, les objectifs, le suivi de l’eau et du poids ainsi que les scans IA quotidiens sont gratuits. CaloSnap Pro ajoute les scans illimités et les assistants IA."
+    },
+    "cancel": {
+      "q": "Comment résilier mon abonnement ?",
+      "a": "Les abonnements sont gérés par l’App Store ou Google Play. Ouvrez les réglages d’abonnement de votre compte sur votre téléphone et résiliez-le depuis cet écran."
+    },
+    "languages": {
+      "q": "Quelles langues sont disponibles ?",
+      "a": "Ouzbek, russe, anglais, turc, kazakh, coréen, espagnol, allemand et français."
+    }
+  },
+  "cta": {
+    "title": "Mangez mieux dès aujourd’hui",
+    "subtitle": "Téléchargez CaloSnap et notez votre premier repas en quelques secondes."
+  },
+  "footer": {
+    "tagline": "Compteur de calories IA à partir d’une photo.",
+    "product": "Produit",
+    "legal": "Mentions légales",
+    "privacy": "Politique de confidentialité",
+    "terms": "Conditions d’utilisation",
+    "deleteAccount": "Supprimer le compte",
+    "contact": "Contact",
+    "telegram": "Écrivez-nous sur Telegram",
+    "rights": "Tous droits réservés."
+  },
+  "legal": {
+    "back": "Retour à l’accueil"
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "text": "La page que vous recherchez n’existe pas ou a été déplacée."
+  }
+}

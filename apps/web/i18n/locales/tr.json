@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "title": "CaloSnap: Fotoğraftan yapay zeka ile kalori hesaplama",
+    "description": "Yemeğinin fotoğrafını çek, CaloSnap'in yapay zekası kaloriyi, proteini, karbonhidratı ve yağı saniyeler içinde hesaplasın. Besin günlüğü, barkod tarayıcı, AI Şef ve AI Diyetisyen tek bir basit uygulamada."
+  },
+  "nav": {
+    "features": "Özellikler",
+    "how": "Nasıl çalışır",
+    "ai": "AI asistanlar",
+    "pro": "Pro",
+    "faq": "SSS",
+    "download": "İndir",
+    "menu": "Menü",
+    "home": "Ana sayfa"
+  },
+  "theme": {
+    "toggle": "Temayı değiştir",
+    "light": "Açık",
+    "dark": "Koyu"
+  },
+  "lang": {
+    "label": "Dil"
+  },
+  "hero": {
+    "badge": "Yapay zeka destekli beslenme takibi",
+    "title": "Fotoğrafını çek.",
+    "titleAccent": "Kalorini öğren.",
+    "subtitle": "Yemeğinin fotoğrafını çek; CaloSnap'in yapay zekası yiyeceği tanısın, porsiyonu tahmin etsin, kaloriyi ve makroları saniyeler içinde hesaplasın. Elle arama yok, tahmin yürütmek yok.",
+    "note": "Ücretsiz indir. 9 dilde kullanılabilir."
+  },
+  "store": {
+    "downloadOn": "Hemen indirin",
+    "getItOn": "Şimdi edinin",
+    "soon": "Çok yakında"
+  },
+  "mockup": {
+    "balance": "Bugünkü Kalori Dengesi",
+    "remaining": "Kalan",
+    "consumed": "Alınan",
+    "goalKcal": "Hedef (kcal)",
+    "protein": "Protein",
+    "carbs": "Karbonhidrat",
+    "fat": "Yağ",
+    "aiTools": "AI asistanlar",
+    "chef": "AI Şef",
+    "chefSub": "Elinizdekilerle tarifler",
+    "chat": "AI Diyetisyen",
+    "chatSub": "Beslenme tavsiyeleri",
+    "water": "Su",
+    "addWater": "+250 ml",
+    "todaysMeals": "Bugünkü Öğünler",
+    "seeAll": "Tümü",
+    "breakfast": "🍳 Kahvaltı",
+    "lunch": "🍲 Öğle Yemeği",
+    "tabHome": "Ana Sayfa",
+    "tabDiary": "Günlük",
+    "tabScan": "Tara",
+    "tabProfile": "Profil",
+    "meal1": "Meyveli yulaf lapası",
+    "meal2": "Tavuklu salata"
+  },
+  "features": {
+    "title": "Daha akıllı beslenmek için ihtiyacın olan her şey",
+    "subtitle": "Yemek kaydı, ilerleme takibi ve hedefine ulaşmak için tek uygulama. Üstelik sıkıcı kısımlar olmadan.",
+    "scan": {
+      "title": "AI fotoğraf tarayıcı",
+      "text": "Yemekleri, aynı tabaktaki farklı yiyecekleri ve porsiyon boyutlarını tanır; ardından kalori, protein, karbonhidrat ve yağı hesaplar."
+    },
+    "barcode": {
+      "title": "Barkod ve etiketler",
+      "text": "Ürün barkodunu tara ya da besin etiketinin fotoğrafını çek, değerler otomatik olarak doldurulsun."
+    },
+    "diary": {
+      "title": "Günlük, su ve kilo",
+      "text": "Günün tüm öğünlerini gör, su tüketimini tek dokunuşla kaydet ve kilonu anlaşılır bir grafikte takip et."
+    },
+    "goal": {
+      "title": "Kişisel kalori hedefi",
+      "text": "Günlük hedefin ve makroların; yaşına, boyuna, kilona, aktivite düzeyine ve hedefine göre hesaplanır."
+    },
+    "feast": {
+      "title": "Ziyafet modu",
+      "text": "Düğün ya da bayram yemeği mi vardı? Fazla kalorileri önümüzdeki birkaç güne nazikçe yay ve serini bozma."
+    },
+    "secure": {
+      "title": "Gizli ve güvenli",
+      "text": "Uygulamayı Face ID veya parmak iziyle kilitle. Reklam yok, verilerin asla satılmaz."
+    }
+  },
+  "how": {
+    "title": "Nasıl çalışır",
+    "subtitle": "Bir öğünü kaydetmek yaklaşık beş saniye sürer.",
+    "snap": {
+      "title": "Fotoğrafını çek",
+      "text": "Tabağının fotoğrafını çek, barkod tara ya da galeriden bir fotoğraf seç."
+    },
+    "analyze": {
+      "title": "Yapay zeka analiz eder",
+      "text": "Yapay zeka her yiyeceği tanır, ağırlığını tahmin eder ve besin değerlerini hesaplar."
+    },
+    "log": {
+      "title": "Günlüğe ekle",
+      "text": "Gerekirse porsiyonu düzenle ve kaydet. Günlük ilerlemen anında güncellenir."
+    }
+  },
+  "ai": {
+    "badge": "AI asistanlar",
+    "title": "Cebinde bir diyetisyen ve bir şef",
+    "subtitle": "CaloSnap sadece kalori saymakla kalmaz, sıradaki öğününde ne yiyeceğine karar vermene de yardımcı olur.",
+    "chef": {
+      "title": "AI Şef",
+      "text": "Buzdolabının fotoğrafını çek ya da malzemelerini yaz; hedefine uygun, porsiyon başına kalorisi belli 3 sağlıklı tarif al."
+    },
+    "nutritionist": {
+      "title": "AI Diyetisyen",
+      "text": "Beslenmenle ilgili her şeyi sor; hedefine, günlük kalori hedefine ve bugünkü öğünlerine göre yanıtlar al."
+    },
+    "health": {
+      "title": "Sağlık uyarıları",
+      "text": "Diyabet, yüksek tansiyon veya yüksek kolesterolün varsa öğünlerin kontrol edilir ve sana uygun olmayan bir şey olduğunda nazik bir uyarı alırsın."
+    },
+    "disclaimer": "CaloSnap genel bilgilendirme sağlar ve tıbbi tavsiye yerine geçmez. Her zaman doktorunun talimatlarına uy."
+  },
+  "pro": {
+    "badge": "CaloSnap Pro",
+    "title": "Yapay zekanın tüm gücünü keşfet",
+    "subtitle": "Temel özellikler ücretsiz. Pro sınırları kaldırır ve AI asistanları ekler.",
+    "items": {
+      "scan": "Sınırsız AI tarama ve uluslararası barkodlar",
+      "multi": "Tek fotoğrafta birden fazla yemek ya da bütün bir sofra",
+      "chef": "AI Şef: buzdolabındakilerle sağlıklı tarifler",
+      "chat": "Kişisel AI Diyetisyen sohbeti",
+      "health": "Diyabet, tansiyon ve kolesterol için öğün uyarıları",
+      "feast": "Ziyafet ve kaçamak günü dengeleme modu"
+    },
+    "trial": "3 gün ücretsiz deneme",
+    "note": "Haftalık, aylık ve yıllık planlar. Fiyatlar uygulamada yerel para biriminle gösterilir. App Store veya Google Play ayarlarından istediğin zaman iptal edebilirsin."
+  },
+  "faq": {
+    "title": "Sıkça sorulan sorular",
+    "accuracy": {
+      "q": "Kalori tahmini ne kadar doğru?",
+      "a": "Günlük öğünlerin çoğunda yapay zeka gerçek değerlere oldukça yakındır, ancak yine de bir tahmindir. Kaydetmeden önce yiyeceği veya porsiyon ağırlığını her zaman düzeltebilirsin."
+    },
+    "foods": {
+      "q": "Hangi yiyecekleri tanıyor?",
+      "a": "Ev yemekleri, yöresel mutfaklar, fast food, içecekler ve paketli ürünler. Paketli ürünlerde en doğru sonuç için barkod veya etiket taraması önerilir."
+    },
+    "privacy": {
+      "q": "Verilerim güvende mi?",
+      "a": "Verilerin yalnızca uygulamanın çalışması için kullanılır. Reklam göstermiyor ve veri satmıyoruz. Hesabını ve tüm verilerini dilediğin zaman profilinden silebilirsin."
+    },
+    "free": {
+      "q": "CaloSnap ücretsiz mi?",
+      "a": "Evet. Günlük, hedefler, su ve kilo takibi ile günlük AI taramaları ücretsiz. CaloSnap Pro sınırsız tarama ve AI asistanları ekler."
+    },
+    "cancel": {
+      "q": "Aboneliğimi nasıl iptal ederim?",
+      "a": "Abonelikler App Store veya Google Play üzerinden yönetilir. Telefonunda hesabının abonelik ayarlarını aç ve oradan iptal et."
+    },
+    "languages": {
+      "q": "Hangi diller destekleniyor?",
+      "a": "Özbekçe, Rusça, İngilizce, Türkçe, Kazakça, Korece, İspanyolca, Almanca ve Fransızca."
+    }
+  },
+  "cta": {
+    "title": "Daha akıllı beslenmeye bugün başla",
+    "subtitle": "CaloSnap'i indir ve ilk öğününü saniyeler içinde kaydet."
+  },
+  "footer": {
+    "tagline": "Fotoğraftan yapay zeka ile kalori hesaplama.",
+    "product": "Ürün",
+    "legal": "Yasal",
+    "privacy": "Gizlilik Politikası",
+    "terms": "Kullanım Koşulları",
+    "deleteAccount": "Hesabı sil",
+    "contact": "İletişim",
+    "telegram": "Telegram'dan bize yaz",
+    "rights": "Tüm hakları saklıdır."
+  },
+  "legal": {
+    "back": "Ana sayfaya dön"
+  },
+  "notFound": {
+    "title": "Sayfa bulunamadı",
+    "text": "Aradığın sayfa mevcut değil ya da taşınmış."
+  }
+}

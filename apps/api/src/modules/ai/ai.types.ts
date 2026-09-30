@@ -15,6 +15,17 @@ export interface DetectedFoodItem {
   visualNotes?: string;
 }
 
+export interface NutritionLabelResult {
+  isLabel: boolean;
+  rejectionReason?: string;
+  productName?: string;
+  caloriesPer100g?: number;
+  proteinPer100g?: number;
+  carbsPer100g?: number;
+  fatPer100g?: number;
+  fiberPer100g?: number;
+}
+
 export interface AiFoodAnalysisResult {
   isFood: boolean;
   rejectionReason?: string;

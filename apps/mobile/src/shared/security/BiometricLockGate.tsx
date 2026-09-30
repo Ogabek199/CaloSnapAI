@@ -11,12 +11,14 @@ import {
 } from 'react-native';
 import { ScanFace } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, usePalette, useStrings } from '../../store/useAppStore';
 import {
   authenticateWithBiometrics,
   BIOMETRIC_LOCK_AFTER_MS,
+  hasDeviceAuthentication,
 } from './biometric';
 import { FontSize, Radius, Spacing } from '../theme/spacing';
+import { useColdLockStore } from './lock-state';
 
 /**
  * Locks the app on cold start and after inactivity in background.
@@ -29,17 +31,18 @@ export function BiometricLockGate() {
   const isLoggedIn = useAppStore((s) => s.isLoggedIn);
   const token = useAppStore((s) => s.token);
   const isOnboardingCompleted = useAppStore((s) => s.isOnboardingCompleted);
-  const theme = useAppStore((s) => s.theme);
-  const t = useAppStore((s) => s.t);
-  const c = theme();
-  const strings = t();
+  const c = usePalette();
+  const strings = useStrings();
 
   const [hydrated, setHydrated] = useState(() => useAppStore.persist.hasHydrated());
   const [unlocked, setUnlocked] = useState(true);
   const [busy, setBusy] = useState(false);
+  // On cold start the system Face ID sheet is shown over the splash; the lock screen only appears if it fails.
+  const [coldPrompting, setColdPrompting] = useState(false);
   const backgroundedAt = useRef<number | null>(null);
   const authenticating = useRef(false);
   const promptedForLock = useRef(false);
+  const setColdStatus = useColdLockStore((s) => s.setStatus);
 
   const shouldGate =
     hydrated &&
@@ -61,6 +64,10 @@ export function BiometricLockGate() {
         s.isOnboardingCompleted
       ) {
         setUnlocked(false);
+        setColdPrompting(true);
+        setColdStatus('locked');
+      } else {
+        setColdStatus('open');
       }
     };
 
@@ -73,9 +80,11 @@ export function BiometricLockGate() {
   useEffect(() => {
     if (!shouldGate) {
       setUnlocked(true);
+      setColdPrompting(false);
       promptedForLock.current = false;
+      if (hydrated) setColdStatus('open');
     }
-  }, [shouldGate]);
+  }, [shouldGate, hydrated, setColdStatus]);
 
   useEffect(() => {
     if (!shouldGate) return;
@@ -110,12 +119,20 @@ export function BiometricLockGate() {
       if (ok) {
         setUnlocked(true);
         promptedForLock.current = false;
+        setColdStatus('open');
+      } else if (!(await hasDeviceAuthentication())) {
+        // Biometrics and passcode were removed from the device; the lock can never be satisfied.
+        useAppStore.getState().setBiometricLockEnabled(false);
+        setUnlocked(true);
+        promptedForLock.current = false;
+        setColdStatus('open');
       }
     } finally {
       authenticating.current = false;
       setBusy(false);
+      setColdPrompting(false);
     }
-  }, [strings.biometricPrompt]);
+  }, [strings.biometricPrompt, setColdStatus]);
 
   useEffect(() => {
     if (!locked || promptedForLock.current) return;
@@ -123,7 +140,7 @@ export function BiometricLockGate() {
     unlock();
   }, [locked, unlock]);
 
-  if (!locked) return null;
+  if (!locked || coldPrompting) return null;
 
   return (
     <Modal visible animationType="fade" presentationStyle="fullScreen" statusBarTranslucent>
@@ -145,23 +162,36 @@ export function BiometricLockGate() {
           <Text style={[styles.sub, { color: c.textMuted }]}>{strings.biometricLockSub}</Text>
         </View>
 
-        <Pressable
-          onPress={unlock}
-          disabled={busy}
-          style={({ pressed }) => [
-            styles.btn,
-            {
-              backgroundColor: c.primary,
-              opacity: busy ? 0.7 : pressed ? 0.9 : 1,
-            },
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.btnText}>{strings.biometricUnlock}</Text>
-          )}
-        </Pressable>
+        <View style={styles.actions}>
+          <Pressable
+            onPress={unlock}
+            disabled={busy}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.btn,
+              {
+                backgroundColor: c.primary,
+                opacity: busy ? 0.7 : pressed ? 0.9 : 1,
+              },
+            ]}
+          >
+            {busy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>{strings.biometricUnlock}</Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={() => useAppStore.getState().logout()}
+            disabled={busy}
+            accessibilityRole="button"
+            hitSlop={8}
+            style={({ pressed }) => [styles.secondaryBtn, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Text style={[styles.secondaryBtnText, { color: c.textMuted }]}>{strings.logout}</Text>
+          </Pressable>
+        </View>
       </View>
     </Modal>
   );
@@ -209,5 +239,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: FontSize.md,
     fontWeight: '700',
+  },
+  actions: {
+    gap: Spacing.sm,
+  },
+  secondaryBtn: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryBtnText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
   },
 });

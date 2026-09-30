@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   Flame,
@@ -10,12 +10,12 @@ import {
   Dumbbell,
   Check,
   Bell,
+  LogOut,
 } from 'lucide-react-native';
-import { useAppStore } from '../src/store/useAppStore';
+import { useAppStore, usePalette, useStrings } from '../src/store/useAppStore';
 import { useDiaryStore } from '../src/store/useDiaryStore';
 import { useToastStore } from '../src/store/useToastStore';
-import { Language } from '../src/shared/i18n/translations';
-import { NotificationService } from '../src/shared/notifications/notification.service';
+import { LANGUAGES } from '../src/shared/i18n/languages';
 import { ApiClient } from '../src/shared/api/api-client';
 import { Button } from '../src/shared/ui/Button';
 import { WheelSelectModal } from '../src/shared/ui/WheelSelectModal';
@@ -44,11 +44,11 @@ const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {
  */
 const TOTAL_STEPS = 6;
 
-const LANGUAGES: { code: Language; label: string; flag: string }[] = [
-  { code: 'uz', label: "O'zbekcha", flag: '🇺🇿' },
-  { code: 'ru', label: 'Русский', flag: '🇷🇺' },
-  { code: 'en', label: 'English', flag: '🇬🇧' },
-];
+const AGE_OPTIONS = Array.from({ length: 67 }, (_, i) => ({ label: `${i + 14}`, value: i + 14 }));
+const WEIGHT_OPTIONS = Array.from({ length: 141 }, (_, i) => ({ label: `${i + 40}`, value: i + 40 }));
+const HEIGHT_OPTIONS = Array.from({ length: 101 }, (_, i) => ({ label: `${i + 120}`, value: i + 120 }));
+
+const dropLeadingEmoji = (s: string) => s.replace(/^[^A-Za-z\u00C0-\u024F\u0400-\u04FF\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF0-9]+/, '');
 
 function OptionCard({
   selected,
@@ -99,21 +99,21 @@ function OptionCard({
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const {
-    user,
-    updateUserStats,
-    setOnboardingCompleted,
-    setMealRemindersEnabled,
-    language,
-    setLanguage,
-    theme,
-    t,
-  } = useAppStore();
-  const { setCalorieGoal, refreshDiary } = useDiaryStore();
-  const { showToast } = useToastStore();
+  const user = useAppStore((s) => s.user);
+  const language = useAppStore((s) => s.language);
+  const updateUserStats = useAppStore((s) => s.updateUserStats);
+  const setOnboardingCompleted = useAppStore((s) => s.setOnboardingCompleted);
+  const setMealRemindersEnabled = useAppStore((s) => s.setMealRemindersEnabled);
+  const setLanguage = useAppStore((s) => s.setLanguage);
+  const logout = useAppStore((s) => s.logout);
+  const setCalorieGoal = useDiaryStore((s) => s.setCalorieGoal);
+  const refreshDiary = useDiaryStore((s) => s.refreshDiary);
+  const showToast = useToastStore((s) => s.showToast);
+  const insets = useSafeAreaInsets();
 
-  const strings = t();
-  const colors = theme();
+  const strings = useStrings();
+  const colors = usePalette();
+  const finishingRef = useRef(false);
 
   const [step, setStep] = useState(1);
   const [goal, setGoal] = useState<GoalType>(user.fitnessGoal || 'LOSE_WEIGHT');
@@ -135,42 +135,28 @@ export default function OnboardingScreen() {
     if (goal === 'LOSE_WEIGHT') target = tdee - 400;
     if (goal === 'BUILD_MUSCLE') target = tdee + 350;
     const calories = Math.max(1200, Math.round(target));
+    // Mirrors GoalsService.calculateTDEE so the preview matches what the server stores.
+    const protein = Math.round(weight * 2);
+    const fat = Math.round((calories * 0.25) / 9);
     return {
       calories,
-      protein: Math.round((calories * 0.25) / 4),
-      carbs: Math.round((calories * 0.5) / 4),
-      fat: Math.round((calories * 0.25) / 9),
+      protein,
+      carbs: Math.max(0, Math.round((calories - (protein * 4 + fat * 9)) / 4)),
+      fat,
     };
   }, [age, weight, height, gender, activity, goal]);
 
   const stepMeta: Record<number, { title: string; subtitle: string }> = {
-    1: {
-      title: 'Tilni tanlang',
-      subtitle: 'Ilova qaysi tilda ishlasini tanlang',
-    },
-    2: {
-      title: 'Maqsadingiz nima?',
-      subtitle: 'Kaloriya me’yorini shunga qarab hisoblaymiz',
-    },
-    3: {
-      title: 'Jins va yosh',
-      subtitle: 'BMR hisobi uchun kerak (faqat sizga ko‘rinadi)',
-    },
-    4: {
-      title: 'Vazn va bo‘y',
-      subtitle: 'Kunlik kaloriya me’yorini aniq hisoblash uchun',
-    },
-    5: {
-      title: 'Faollik darajasi',
-      subtitle: 'Kunlik harakatingiz TDEE ga ta’sir qiladi',
-    },
-    6: {
-      title: 'Rejangiz tayyor',
-      subtitle: 'Shaxsiy kunlik norma hisoblandi',
-    },
+    1: { title: strings.welcomeTitle, subtitle: strings.welcomeSubtitle },
+    2: { title: strings.goalTitle, subtitle: strings.goalSubtitle },
+    3: { title: strings.statsTitle, subtitle: strings.statsSubtitle },
+    4: { title: strings.statsTitle, subtitle: strings.statsSubtitle },
+    5: { title: strings.activityTitle, subtitle: strings.activitySubtitle },
+    6: { title: strings.readyTitle, subtitle: strings.readySubtitle },
   };
 
   const handleNext = () => {
+    if (finishingRef.current) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (step < TOTAL_STEPS) setStep(step + 1);
     else handleFinish();
@@ -181,10 +167,22 @@ export default function OnboardingScreen() {
     if (step > 1) setStep(step - 1);
   };
 
+  useEffect(() => {
+    if (step <= 1) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!finishingRef.current) setStep((s) => Math.max(1, s - 1));
+      return true;
+    });
+    return () => sub.remove();
+  }, [step]);
+
   const handleFinish = async () => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
     setFinishing(true);
+    let serverCalories: number | undefined;
     try {
-      await ApiClient.saveGoals({
+      const res = await ApiClient.saveGoals({
         age,
         gender,
         weightKg: weight,
@@ -192,15 +190,18 @@ export default function OnboardingScreen() {
         activityLevel: activity,
         goal,
       });
+      serverCalories =
+        res?.calculatedGoals?.dailyCalories ?? res?.profile?.dailyCalorieGoal ?? undefined;
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showToast(e?.message || 'Maqsadlarni saqlashda xatolik. Qayta urinib ko‘ring.', 'error');
+      showToast(e?.message || strings.goalsSaveFailed, 'error');
+      finishingRef.current = false;
       setFinishing(false);
       return;
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setCalorieGoal(plan.calories);
+    setCalorieGoal(serverCalories && serverCalories > 0 ? serverCalories : plan.calories);
     updateUserStats({
       fitnessGoal: goal,
       gender,
@@ -211,25 +212,26 @@ export default function OnboardingScreen() {
     });
     setMealRemindersEnabled(enableReminders);
     try {
+      const { NotificationService } = await import(
+        '../src/shared/notifications/notification.service'
+      );
       if (enableReminders) await NotificationService.scheduleMealReminders(language);
       else await NotificationService.cancelMealReminders();
     } catch {}
 
     setOnboardingCompleted(true);
-    await refreshDiary();
-    showToast('Shaxsiy rejangiz saqlandi!', 'success');
-    setFinishing(false);
+    void refreshDiary();
+    showToast(strings.saved, 'success');
     router.replace('/(tabs)');
   };
-
-  const ageOptions = Array.from({ length: 67 }, (_, i) => ({ label: `${i + 14}`, value: i + 14 }));
-  const weightOptions = Array.from({ length: 141 }, (_, i) => ({ label: `${i + 40}`, value: i + 40 }));
-  const heightOptions = Array.from({ length: 101 }, (_, i) => ({ label: `${i + 120}`, value: i + 120 }));
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
+          <Text style={[styles.stepLabel, { color: colors.textMuted }]}>
+            {step} / {TOTAL_STEPS}
+          </Text>
           {step > 1 ? (
             <Pressable
               onPress={handleBack}
@@ -238,12 +240,17 @@ export default function OnboardingScreen() {
               <ChevronLeft color={colors.text} size={22} />
             </Pressable>
           ) : (
-            <View style={{ width: 40 }} />
+            <Pressable
+              onPress={logout}
+              hitSlop={8}
+              disabled={finishing}
+              style={({ pressed }) => [styles.logoutBtn, { opacity: pressed ? 0.6 : 1 }]}
+            >
+              <LogOut color={colors.textMuted} size={16} />
+              <Text style={[styles.logoutText, { color: colors.textMuted }]}>{strings.logout}</Text>
+            </Pressable>
           )}
-          <Text style={[styles.stepLabel, { color: colors.textMuted }]}>
-            {step} / {TOTAL_STEPS}
-          </Text>
-          <View style={{ width: 40 }} />
+          <View style={styles.headerSpacer} />
         </View>
         <View style={[styles.progressTrack, { backgroundColor: colors.cardHover }]}>
           <View
@@ -286,8 +293,8 @@ export default function OnboardingScreen() {
           <View style={styles.stack}>
             <OptionCard
               selected={goal === 'LOSE_WEIGHT'}
-              title="Vazn tashlash"
-              subtitle="Kuniga ~400 kcal defitsit"
+              title={dropLeadingEmoji(strings.loseWeight)}
+              subtitle={strings.loseWeightDesc}
               icon={
                 <View style={[styles.iconBox, { backgroundColor: colors.secondaryBg }]}>
                   <Flame color={colors.secondary} size={20} />
@@ -301,8 +308,8 @@ export default function OnboardingScreen() {
             />
             <OptionCard
               selected={goal === 'MAINTAIN'}
-              title="Vaznni saqlash"
-              subtitle="Balanslangan kaloriya"
+              title={dropLeadingEmoji(strings.maintain)}
+              subtitle={strings.maintainDesc}
               icon={
                 <View style={[styles.iconBox, { backgroundColor: colors.primaryBg }]}>
                   <Scale color={colors.primary} size={20} />
@@ -316,8 +323,8 @@ export default function OnboardingScreen() {
             />
             <OptionCard
               selected={goal === 'BUILD_MUSCLE'}
-              title="Mushak massasi"
-              subtitle="Kuniga ~350 kcal profitsit"
+              title={dropLeadingEmoji(strings.buildMuscle)}
+              subtitle={strings.buildMuscleDesc}
               icon={
                 <View style={[styles.iconBox, { backgroundColor: colors.infoBg }]}>
                   <Dumbbell color={colors.info} size={20} />
@@ -334,7 +341,7 @@ export default function OnboardingScreen() {
 
         {step === 3 && (
           <View style={styles.stack}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Jins</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{strings.genderLabel}</Text>
             <View style={styles.row2}>
               {(['MALE', 'FEMALE'] as const).map((g) => {
                 const selected = gender === g;
@@ -354,7 +361,7 @@ export default function OnboardingScreen() {
                     ]}
                   >
                     <Text style={[styles.halfBtnText, { color: colors.text }]}>
-                      {g === 'MALE' ? 'Erkak' : 'Ayol'}
+                      {g === 'MALE' ? strings.male : strings.female}
                     </Text>
                   </Pressable>
                 );
@@ -362,21 +369,21 @@ export default function OnboardingScreen() {
             </View>
 
             <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: Spacing.lg }]}>
-              Yosh
+              {strings.ageLabel}
             </Text>
             <Pressable
               onPress={() => setWheel('age')}
               style={[styles.valueBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               <Text style={[styles.valueNum, { color: colors.text }]}>{age}</Text>
-              <Text style={[styles.valueUnit, { color: colors.textMuted }]}>yosh</Text>
+              <Text style={[styles.valueUnit, { color: colors.textMuted }]}>{strings.yearsOld}</Text>
             </Pressable>
           </View>
         )}
 
         {step === 4 && (
           <View style={styles.stack}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Vazn</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{strings.weightLabel}</Text>
             <Pressable
               onPress={() => setWheel('weight')}
               style={[styles.valueBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -386,7 +393,7 @@ export default function OnboardingScreen() {
             </Pressable>
 
             <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: Spacing.lg }]}>
-              Bo‘y
+              {strings.heightLabel}
             </Text>
             <Pressable
               onPress={() => setWheel('height')}
@@ -402,8 +409,8 @@ export default function OnboardingScreen() {
           <View style={styles.stack}>
             <OptionCard
               selected={activity === 'SEDENTARY'}
-              title="Kam harakatli"
-              subtitle="Asosan o‘tirib ishlash"
+              title={strings.sedentaryTitle}
+              subtitle={strings.sedentaryDesc}
               onPress={() => {
                 Haptics.selectionAsync();
                 setActivity('SEDENTARY');
@@ -412,8 +419,8 @@ export default function OnboardingScreen() {
             />
             <OptionCard
               selected={activity === 'LIGHT'}
-              title="Yengil faol"
-              subtitle="Haftada 1–3 marta yengil mashq"
+              title={strings.lightActiveTitle}
+              subtitle={strings.lightActiveDesc}
               onPress={() => {
                 Haptics.selectionAsync();
                 setActivity('LIGHT');
@@ -422,8 +429,8 @@ export default function OnboardingScreen() {
             />
             <OptionCard
               selected={activity === 'MODERATE'}
-              title="O‘rtacha faol"
-              subtitle="Haftada 3–5 marta mashq / ko‘p yurish"
+              title={strings.moderateTitle}
+              subtitle={strings.moderateDesc}
               onPress={() => {
                 Haptics.selectionAsync();
                 setActivity('MODERATE');
@@ -432,8 +439,8 @@ export default function OnboardingScreen() {
             />
             <OptionCard
               selected={activity === 'VERY_ACTIVE'}
-              title="Yuqori faollik"
-              subtitle="Har kuni intensiv mashg‘ulot"
+              title={strings.highActiveTitle}
+              subtitle={strings.highActiveDesc}
               onPress={() => {
                 Haptics.selectionAsync();
                 setActivity('VERY_ACTIVE');
@@ -442,8 +449,8 @@ export default function OnboardingScreen() {
             />
             <OptionCard
               selected={activity === 'EXTRA_ACTIVE'}
-              title="Juda faol"
-              subtitle="Jismoniy ish + kunlik mashq"
+              title={strings.veryActiveTitle}
+              subtitle={strings.veryActiveDesc}
               onPress={() => {
                 Haptics.selectionAsync();
                 setActivity('EXTRA_ACTIVE');
@@ -456,13 +463,13 @@ export default function OnboardingScreen() {
         {step === 6 && (
           <View style={styles.stack}>
             <View style={[styles.planCard, { backgroundColor: colors.card, borderColor: colors.border }, softShadow('sm')]}>
-              <Text style={[styles.planLabel, { color: colors.textMuted }]}>Kunlik kaloriya me’yori</Text>
+              <Text style={[styles.planLabel, { color: colors.textMuted }]}>{strings.dailyNorm}</Text>
               <Text style={[styles.planCal, { color: colors.primary }]}>{plan.calories}</Text>
-              <Text style={[styles.planUnit, { color: colors.textSecondary }]}>kcal / kun</Text>
+              <Text style={[styles.planUnit, { color: colors.textSecondary }]}>{strings.kcalDay}</Text>
               <View style={styles.macroRow}>
-                <MacroChip label="Oqsil" value={`${plan.protein}g`} color={colors.protein} />
-                <MacroChip label="Uglevod" value={`${plan.carbs}g`} color={colors.carbs} />
-                <MacroChip label="Yog‘" value={`${plan.fat}g`} color={colors.fat} />
+                <MacroChip label={strings.protein} value={`${plan.protein}g`} color={colors.protein} />
+                <MacroChip label={strings.carbs} value={`${plan.carbs}g`} color={colors.carbs} />
+                <MacroChip label={strings.fat} value={`${plan.fat}g`} color={colors.fat} />
               </View>
             </View>
 
@@ -483,9 +490,9 @@ export default function OnboardingScreen() {
                 <Bell color={colors.primary} size={20} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.optionTitle, { color: colors.text }]}>Ovqatlanish eslatmalari</Text>
+                <Text style={[styles.optionTitle, { color: colors.text }]}>{strings.mealRemindersTitle}</Text>
                 <Text style={[styles.optionSub, { color: colors.textMuted }]}>
-                  08:30 · 13:00 · 19:30 — ixtiyoriy
+                  {strings.mealRemindersSub}
                 </Text>
               </View>
               {enableReminders ? (
@@ -500,9 +507,18 @@ export default function OnboardingScreen() {
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.footer,
+          {
+            borderTopColor: colors.border,
+            backgroundColor: colors.background,
+            paddingBottom: Spacing.xl + insets.bottom,
+          },
+        ]}
+      >
         <Button
-          title={step === TOTAL_STEPS ? 'Boshlash' : 'Davom etish'}
+          title={step === TOTAL_STEPS ? strings.startAppBtn : strings.nextBtn}
           onPress={handleNext}
           loading={finishing}
         />
@@ -510,8 +526,8 @@ export default function OnboardingScreen() {
 
       <WheelSelectModal
         visible={wheel != null}
-        title={wheel === 'age' ? 'Yosh' : wheel === 'weight' ? 'Vazn (kg)' : 'Bo‘y (cm)'}
-        options={wheel === 'age' ? ageOptions : wheel === 'weight' ? weightOptions : heightOptions}
+        title={wheel === 'age' ? strings.ageLabel : wheel === 'weight' ? strings.weightLabel : strings.heightLabel}
+        options={wheel === 'age' ? AGE_OPTIONS : wheel === 'weight' ? WEIGHT_OPTIONS : HEIGHT_OPTIONS}
         selectedValue={wheel === 'age' ? age : wheel === 'weight' ? weight : height}
         unit={wheel === 'age' ? '' : wheel === 'weight' ? 'kg' : 'cm'}
         onClose={() => setWheel(null)}
@@ -556,7 +572,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepLabel: { fontSize: FontSize.sm, fontWeight: '600' },
+  stepLabel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+  },
+  headerSpacer: { width: 40, height: 40 },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40 },
+  logoutText: { fontSize: FontSize.sm, fontWeight: '600' },
   progressTrack: {
     height: 4,
     borderRadius: 2,
@@ -643,16 +669,12 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '700',
     letterSpacing: -1,
-    lineHeight: 40,
     includeFontPadding: false,
-    textAlignVertical: 'center',
   },
   valueUnit: {
     fontSize: FontSize.md,
     fontWeight: '500',
-    lineHeight: 40,
     includeFontPadding: false,
-    textAlignVertical: 'center',
   },
   planCard: {
     borderRadius: Radius.xl,

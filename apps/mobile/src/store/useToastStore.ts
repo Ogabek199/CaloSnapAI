@@ -1,6 +1,22 @@
 import { create } from 'zustand';
+import { useAppStore } from './useAppStore';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
+
+const TOAST_DURATION_MS = 3500;
+
+// Raw runtime/transport errors that should never be shown verbatim.
+const TECHNICAL_ERROR_PATTERN =
+  /^(TypeError|SyntaxError|ReferenceError|Error:)|Network request failed|Failed to fetch|JSON Parse error|Unexpected token|undefined is not|null is not/i;
+
+let hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+const clearHideTimer = () => {
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+};
 
 interface ToastState {
   visible: boolean;
@@ -16,24 +32,21 @@ export const useToastStore = create<ToastState>((set) => ({
   type: 'info',
 
   showToast: (message: string, type = 'info') => {
-    // Map raw tech errors to friendly user-safe text
-    let userFriendly = message;
-    if (
-      message.includes('404') ||
-      message.includes('500') ||
-      message.includes('Network') ||
-      message.includes('Failed to fetch') ||
-      message.includes('ApiError')
-    ) {
-      userFriendly = 'Xatolik yuz berdi. Iltimos, qaytadan urinib ko‘ring.';
-    }
+    const text = typeof message === 'string' ? message.trim() : '';
+    const userFriendly =
+      !text || TECHNICAL_ERROR_PATTERN.test(text) ? useAppStore.getState().t().errGeneric : text;
 
+    clearHideTimer();
     set({ visible: true, message: userFriendly, type });
 
-    setTimeout(() => {
+    hideTimer = setTimeout(() => {
+      hideTimer = null;
       set({ visible: false });
-    }, 3500);
+    }, TOAST_DURATION_MS);
   },
 
-  hideToast: () => set({ visible: false }),
+  hideToast: () => {
+    clearHideTimer();
+    set({ visible: false });
+  },
 }));

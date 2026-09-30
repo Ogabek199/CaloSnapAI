@@ -12,6 +12,7 @@ import {
 import { DiaryService } from './diary.service';
 import { AddMealItemDto } from './dto/add-meal-item.dto';
 import { UpdateMealItemDto } from './dto/update-meal-item.dto';
+import { AddMealItemsBatchDto } from './dto/add-meal-items-batch.dto';
 import { DailyDiarySummaryDto, DiaryMealItemDto } from './dto/diary-response.dto';
 
 @ApiTags('Diary')
@@ -86,6 +87,17 @@ export class DiaryController {
     @Body() body: AddMealItemDto,
   ) {
     return this.diaryService.addMealItem(req.user.id, body);
+  }
+
+  @Post('items/batch')
+  @ApiOperation({
+    summary: 'Bir nechta taomni bitta so‘rovda qo‘shish',
+    description: 'Skaner natijasidagi barcha taomlarni qo‘shadi va bugungi kundalikni qaytaradi.',
+  })
+  @ApiBody({ type: AddMealItemsBatchDto })
+  @ApiResponse({ status: 201, type: DailyDiarySummaryDto })
+  async addMealItemsBatch(@Request() req: any, @Body() body: AddMealItemsBatchDto) {
+    return this.diaryService.addMealItemsBatch(req.user.id, body.items);
   }
 
   @Delete('items/:id')

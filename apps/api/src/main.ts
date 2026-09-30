@@ -1,17 +1,35 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger, RequestMethod } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import helmet from 'helmet';
+import { json } from 'express';
 import { AppModule } from './app.module';
+
+// Clients send local calendar days (YYYY-MM-DD) and "today" is computed server-side, so the process
+// must run in the users' timezone rather than the container default (UTC on Railway).
+process.env.TZ = process.env.TZ || 'Asia/Tashkent';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const isProd = process.env.NODE_ENV === 'production';
+
+  // Railway terminates TLS at its proxy; needed so rate limiting sees the real client IP.
+  app.set('trust proxy', 1);
+  app.use(helmet({ contentSecurityPolicy: isProd ? undefined : false }));
+  // Scan images and avatars arrive as base64 JSON (~8 MB image => ~11 MB string). Only those routes
+  // get the large limit; body-parser skips already-parsed bodies, so everything else stays at 1 MB.
+  app.use(
+    ['/api/v1/food-scans', '/api/v1/auth/avatar', '/api/v1/foods/nutrition-label', '/api/v1/assistant/chef'],
+    json({ limit: '15mb' }),
+  );
+  app.useBodyParser('json', { limit: '1mb' });
+  app.enableShutdownHooks();
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
-  // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -20,28 +38,43 @@ async function bootstrap() {
     }),
   );
 
-  // Enable CORS
+  // Native mobile clients don't send Origin, so CORS only matters for browsers.
+  const corsOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: true,
+    origin: corsOrigins.length > 0 ? corsOrigins : !isProd,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
   });
 
-  // Global Prefix: /api/v1
-  app.setGlobalPrefix('api/v1');
+  // Legal pages are linked from store listings, so they live at short URLs outside the API prefix.
+  app.setGlobalPrefix('api/v1', { exclude: [{ path: 'legal/:page', method: RequestMethod.GET }] });
 
-  // Swagger OpenApi sozlash
+  if (!isProd) {
+    setupSwagger(app);
+  }
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0');
+  logger.log(`CaloSnap API listening on port ${port} (prefix /api/v1)`);
+  if (!isProd) {
+    logger.log(`Swagger docs: http://localhost:${port}/api/docs`);
+  }
+}
+
+function setupSwagger(app: NestExpressApplication) {
   const config = new DocumentBuilder()
-    .setTitle('Taom AI — Food Scanner & Nutrition API')
+    .setTitle('CaloSnap — Food Scanner & Nutrition API')
     .setDescription(
-      `Taom AI backend servislarining rasmiy REST API hujjatlari.\n\n` +
+      `CaloSnap backend servislarining rasmiy REST API hujjatlari.\n\n` +
       `🔥 **Asosiy imkoniyatlar:**\n` +
       `- 📸 **Food Scanner (AI)**: Gemini 2.5 Flash yordamida taom rasmini skanerlash va BJU/kaloriyasini aniqlash\n` +
       `- 🥗 **Foods Database**: Milliy va xalqaro taomlar, porsiyalar va 100g dagi ozuqaviy qiymatlar\n` +
       `- 📖 **Diary**: Kunlik ovqatlanish jurnali, qabul qilingan va qolgan kaloriyalar statistikasi\n` +
       `- 🎯 **Goals & Nutrition**: Mifflin-St Jeor / TDEE formulasi orqali individual kaloriya va makronutrientlar hisobi\n` +
       `- 🔐 **Auth**: JWT Bearer token autentifikatsiyasi va profil boshqaruvi\n\n` +
-      `*Taom AI — Smart Health & Food Tracking System*`,
+      `*CaloSnap — Smart Health & Food Tracking System*`,
     )
     .setVersion('1.0.0')
     .addTag('Auth', 'Foydalanuvchi autentifikatsiyasi va profil ma’lumotlari (JWT)')
@@ -64,7 +97,7 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
-    customSiteTitle: 'Taom AI — API Documentation',
+    customSiteTitle: 'CaloSnap — API Documentation',
     customCss: `
       .swagger-ui .topbar { display: none }
       .swagger-ui .info { margin-bottom: 24px }
@@ -83,11 +116,9 @@ async function bootstrap() {
       defaultModelExpandDepth: 3,
     },
   });
-
-  const port = process.env.PORT || 4000;
-  await app.listen(port, '0.0.0.0');
-  logger.log(`🚀 Taom AI Backend server is running on: http://localhost:${port}/api/v1`);
-  logger.log(`📚 Taom AI Swagger API Docs: http://localhost:${port}/api/docs`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  new Logger('Bootstrap').error('Failed to start application', err?.stack || err);
+  process.exit(1);
+});

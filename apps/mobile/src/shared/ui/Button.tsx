@@ -8,7 +8,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { usePalette } from '../../store/useAppStore';
-import { Radius, FontSize, Spacing } from '../theme/spacing';
+import { Radius, FontSize, Spacing, androidTextFix } from '../theme/spacing';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 
@@ -71,7 +71,7 @@ export function Button({
       ) : (
         <>
           {leftIcon}
-          <Text style={[styles.label, { color }, textStyle]}>{title}</Text>
+          <Text style={[styles.label, { color }, androidTextFix, textStyle]}>{title}</Text>
           {rightIcon}
         </>
       )}

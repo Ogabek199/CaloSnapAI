@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { safeStorage } from '../shared/storage/safe-storage';
+import { createTokenSplitStorage } from '../shared/storage/safe-storage';
 import { Language, translations } from '../shared/i18n/translations';
+import { deviceLanguage } from '../shared/i18n/languages';
 import { DarkTheme, LightTheme, ThemePalette } from '../shared/theme/colors';
+import type { HealthCondition } from '../shared/api/api-client';
 
 export interface UserState {
   id?: string;
@@ -16,6 +18,8 @@ export interface UserState {
   gender: 'MALE' | 'FEMALE';
   fitnessGoal: 'LOSE_WEIGHT' | 'MAINTAIN' | 'BUILD_MUSCLE';
   activityLevel?: 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'VERY_ACTIVE' | 'EXTRA_ACTIVE';
+  isPremium?: boolean;
+  healthConditions?: HealthCondition[];
 }
 
 const defaultUser: UserState = {
@@ -23,13 +27,17 @@ const defaultUser: UserState = {
   email: '',
   phone: '',
   avatarUrl: '',
+  isPremium: false,
   age: 25,
   weightKg: 80,
   heightCm: 180,
   gender: 'MALE',
   fitnessGoal: 'LOSE_WEIGHT',
   activityLevel: 'MODERATE',
+  healthConditions: [],
 };
+
+export type PremiumSource = 'server' | 'store';
 
 interface AppState {
   language: Language;
@@ -41,6 +49,8 @@ interface AppState {
   biometricLockEnabled: boolean;
   user: UserState;
   token: string | null;
+  /** Pro is granted by either the backend (webhook / promo) or the store entitlement; tracked separately so neither overrides the other. */
+  premiumSources: { server: boolean; store: boolean };
 
   setLanguage: (lang: Language) => void;
   setThemeMode: (theme: 'dark' | 'light') => void;
@@ -48,6 +58,7 @@ interface AppState {
   setMealRemindersEnabled: (enabled: boolean) => void;
   setBiometricLockEnabled: (enabled: boolean) => void;
   setAvatarUrl: (url: string) => void;
+  setIsPremium: (isPremium: boolean, source?: PremiumSource) => void;
   updateUserStats: (stats: Partial<UserState>) => void;
   login: (
     identifier: string,
@@ -65,7 +76,7 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      language: 'uz',
+      language: deviceLanguage(),
       themeMode: 'light',
       isLoggedIn: false,
       isOnboardingCompleted: false,
@@ -73,6 +84,7 @@ export const useAppStore = create<AppState>()(
       biometricLockEnabled: false,
       user: defaultUser,
       token: null,
+      premiumSources: { server: false, store: false },
 
       setLanguage: (lang) => set({ language: lang }),
       setThemeMode: (theme) => set({ themeMode: theme }),
@@ -84,30 +96,46 @@ export const useAppStore = create<AppState>()(
           user: { ...state.user, avatarUrl: url },
         })),
 
+      setIsPremium: (isPremium, source = 'store') =>
+        set((state) => {
+          const premiumSources = { ...state.premiumSources, [source]: isPremium };
+          return {
+            premiumSources,
+            user: { ...state.user, isPremium: premiumSources.server || premiumSources.store },
+          };
+        }),
+
       updateUserStats: (stats) =>
         set((state) => ({
           user: { ...state.user, ...stats },
         })),
 
       login: (identifier, name, token, phone, profile, avatarUrl) => {
-        set((state) => ({
-          isLoggedIn: true,
-          token: token || state.token,
-          user: {
-            ...state.user,
-            id: profile?.userId || profile?.id || state.user.id,
-            email: identifier.includes('@') ? identifier : `${identifier.replace(/\D/g, '')}@phone.eda.ai`,
-            phone: phone || (identifier.includes('@') ? '' : identifier),
-            name: name || state.user.name || 'Foydalanuvchi',
-            avatarUrl: avatarUrl ?? profile?.avatarUrl ?? profile?.user?.avatarUrl ?? state.user.avatarUrl ?? '',
-            age: profile?.age ?? state.user.age ?? 25,
-            weightKg: profile?.weightKg ?? state.user.weightKg ?? 80,
-            heightCm: profile?.heightCm ?? state.user.heightCm ?? 180,
-            gender: profile?.gender ?? state.user.gender ?? 'MALE',
-            fitnessGoal: profile?.goal ?? state.user.fitnessGoal ?? 'LOSE_WEIGHT',
-            activityLevel: profile?.activityLevel ?? state.user.activityLevel ?? 'MODERATE',
-          },
-        }));
+        set((state) => {
+          const serverPremium = !!(profile?.isPremium ?? profile?.user?.isPremium ?? state.premiumSources.server);
+          const premiumSources = { ...state.premiumSources, server: serverPremium };
+          return {
+            isLoggedIn: true,
+            token: token || state.token,
+            premiumSources,
+            user: {
+              ...state.user,
+              id: profile?.userId || profile?.id || state.user.id,
+              email: identifier.includes('@') ? identifier : `${identifier.replace(/\D/g, '')}@phone.eda.ai`,
+              phone: phone || (identifier.includes('@') ? '' : identifier),
+              name: name || state.user.name || get().t().defaultUserName,
+              avatarUrl: avatarUrl ?? profile?.avatarUrl ?? profile?.user?.avatarUrl ?? state.user.avatarUrl ?? '',
+              age: profile?.age ?? state.user.age ?? 25,
+              weightKg: profile?.weightKg ?? state.user.weightKg ?? 80,
+              heightCm: profile?.heightCm ?? state.user.heightCm ?? 180,
+              gender: profile?.gender ?? state.user.gender ?? 'MALE',
+              fitnessGoal: profile?.goal ?? state.user.fitnessGoal ?? 'LOSE_WEIGHT',
+              activityLevel: profile?.activityLevel ?? state.user.activityLevel ?? 'MODERATE',
+              healthConditions: Array.isArray(profile?.healthConditions) ? profile.healthConditions : [],
+              isPremium: premiumSources.server || premiumSources.store,
+            },
+          };
+        });
       },
 
       logout: () => {
@@ -115,11 +143,18 @@ export const useAppStore = create<AppState>()(
           isLoggedIn: false,
           token: null,
           isOnboardingCompleted: false,
+          premiumSources: { server: false, store: false },
           user: {
             ...defaultUser,
             name: 'Mehmon',
           },
         });
+
+        // Detach purchases from this account so the next user doesn't inherit the subscription.
+        try {
+          const { RevenueCatService } = require('../shared/services/revenuecat.service');
+          void RevenueCatService?.logOut?.();
+        } catch (e) {}
 
         // Clear user-specific caches across stores
         try {
@@ -129,8 +164,22 @@ export const useAppStore = create<AppState>()(
 
         try {
           const { useScanStore } = require('./useScanStore');
-          useScanStore?.getState()?.setImageUri?.(null);
-          useScanStore?.getState()?.setScanResult?.(null);
+          useScanStore?.getState()?.reset?.();
+        } catch (e) {}
+
+        try {
+          const { useFeastStore } = require('./useFeastStore');
+          useFeastStore?.getState()?.reset?.();
+        } catch (e) {}
+
+        try {
+          const { useChatStore } = require('./useChatStore');
+          useChatStore?.getState()?.reset?.();
+        } catch (e) {}
+
+        try {
+          const { useSubscriptionStore } = require('./useSubscriptionStore');
+          useSubscriptionStore?.getState()?.closePaywall?.();
         } catch (e) {}
       },
 
@@ -139,7 +188,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'taom-app-storage',
-      storage: createJSONStorage(() => safeStorage),
+      storage: createJSONStorage(() => createTokenSplitStorage('token')),
       partialize: (state) => ({
         language: state.language,
         themeMode: state.themeMode,
@@ -149,6 +198,7 @@ export const useAppStore = create<AppState>()(
         biometricLockEnabled: state.biometricLockEnabled,
         user: state.user,
         token: state.token,
+        premiumSources: state.premiumSources,
       }),
     },
   ),

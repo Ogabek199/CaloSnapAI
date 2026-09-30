@@ -1,11 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ActivityLevel, FitnessGoal, Gender } from '@prisma/client';
 
 export class UserProfileDto {
   @ApiProperty({ example: 25, required: false })
   age?: number;
 
-  @ApiProperty({ example: 'MALE', enum: ['MALE', 'FEMALE'], required: false })
-  gender?: string;
+  @ApiProperty({ example: Gender.MALE, enum: Gender, required: false })
+  gender?: Gender;
 
   @ApiProperty({ example: 178, required: false })
   heightCm?: number;
@@ -13,11 +14,19 @@ export class UserProfileDto {
   @ApiProperty({ example: 75.5, required: false })
   weightKg?: number;
 
-  @ApiProperty({ example: 'MODERATE', enum: ['SEDENTARY', 'LIGHT', 'MODERATE', 'VERY_ACTIVE', 'EXTRA_ACTIVE'], required: false })
-  activityLevel?: string;
+  @ApiProperty({
+    example: ActivityLevel.MODERATE,
+    enum: ActivityLevel,
+    required: false,
+  })
+  activityLevel?: ActivityLevel;
 
-  @ApiProperty({ example: 'LOSE_WEIGHT', enum: ['LOSE_WEIGHT', 'MAINTAIN', 'GAIN_WEIGHT', 'BUILD_MUSCLE'], required: false })
-  goal?: string;
+  @ApiProperty({
+    example: FitnessGoal.LOSE_WEIGHT,
+    enum: FitnessGoal,
+    required: false,
+  })
+  goal?: FitnessGoal;
 
   @ApiProperty({ example: 2150, required: false })
   dailyCalorieGoal?: number;

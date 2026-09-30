@@ -1,6 +1,6 @@
 export { DarkTheme, LightTheme, Colors } from './colors';
 export type { ThemePalette } from './colors';
-export { Spacing, Radius, FontSize, softShadow } from './spacing';
+export { Spacing, Radius, FontSize, softShadow, androidTextFix } from './spacing';
 export {
   TAB_BAR_HEIGHT,
   TAB_BAR_FAB_SIZE,

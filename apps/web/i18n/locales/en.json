@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "title": "CaloSnap: AI calorie counter from a photo",
+    "description": "Snap your meal and CaloSnap's AI counts calories, protein, carbs and fat in seconds. Food diary, barcode scanner, AI Chef and AI Nutritionist in one simple app."
+  },
+  "nav": {
+    "features": "Features",
+    "how": "How it works",
+    "ai": "AI assistants",
+    "pro": "Pro",
+    "faq": "FAQ",
+    "download": "Download",
+    "menu": "Menu",
+    "home": "Home"
+  },
+  "theme": {
+    "toggle": "Change theme",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "lang": {
+    "label": "Language"
+  },
+  "hero": {
+    "badge": "AI-powered nutrition tracking",
+    "title": "Snap it.",
+    "titleAccent": "Know your calories.",
+    "subtitle": "Take a photo of your meal and CaloSnap's AI recognises the food, estimates the portion and counts calories and macros in seconds. No manual searching, no guesswork.",
+    "note": "Free to download. Available in 9 languages."
+  },
+  "store": {
+    "downloadOn": "Download on the",
+    "getItOn": "Get it on",
+    "soon": "Coming soon"
+  },
+  "mockup": {
+    "balance": "Today's Calorie Balance",
+    "remaining": "Remaining",
+    "consumed": "Consumed",
+    "goalKcal": "Goal (kcal)",
+    "protein": "Protein",
+    "carbs": "Carbs",
+    "fat": "Fat",
+    "aiTools": "AI assistants",
+    "chef": "AI Chef",
+    "chefSub": "Recipes from what you have",
+    "chat": "AI Nutritionist",
+    "chatSub": "Nutrition advice",
+    "water": "Water",
+    "addWater": "+250 ml",
+    "todaysMeals": "Today's Meals",
+    "seeAll": "All",
+    "breakfast": "🍳 Breakfast",
+    "lunch": "🍲 Lunch",
+    "tabHome": "Home",
+    "tabDiary": "Diary",
+    "tabScan": "Scan",
+    "tabProfile": "Profile",
+    "meal1": "Oatmeal with berries",
+    "meal2": "Chicken salad"
+  },
+  "features": {
+    "title": "Everything you need to eat smarter",
+    "subtitle": "One app for logging food, tracking progress and reaching your goal, without the tedious parts.",
+    "scan": {
+      "title": "AI photo scanner",
+      "text": "Recognises dishes, several foods on one plate and portion sizes, then counts calories, protein, carbs and fat."
+    },
+    "barcode": {
+      "title": "Barcodes and labels",
+      "text": "Scan a product barcode or photograph the nutrition label, and the values are filled in for you."
+    },
+    "diary": {
+      "title": "Diary, water and weight",
+      "text": "See every meal of the day, track water with one tap and follow your weight on a clear chart."
+    },
+    "goal": {
+      "title": "Personal calorie goal",
+      "text": "Your daily target and macros are calculated from your age, height, weight, activity and goal."
+    },
+    "feast": {
+      "title": "Feast mode",
+      "text": "Had a wedding or a holiday dinner? Spread the extra calories gently over the next few days and keep your streak."
+    },
+    "secure": {
+      "title": "Private and secure",
+      "text": "Lock the app with Face ID or fingerprint. No ads, and your data is never sold."
+    }
+  },
+  "how": {
+    "title": "How it works",
+    "subtitle": "Logging a meal takes about five seconds.",
+    "snap": {
+      "title": "Snap",
+      "text": "Take a photo of your plate, scan a barcode or pick a photo from your gallery."
+    },
+    "analyze": {
+      "title": "AI analyses",
+      "text": "The AI identifies each food, estimates the weight and calculates its nutrition."
+    },
+    "log": {
+      "title": "Add to diary",
+      "text": "Adjust the portion if needed and save. Your daily progress updates instantly."
+    }
+  },
+  "ai": {
+    "badge": "AI assistants",
+    "title": "A nutritionist and a chef in your pocket",
+    "subtitle": "Beyond counting calories, CaloSnap helps you decide what to eat next.",
+    "chef": {
+      "title": "AI Chef",
+      "text": "Photograph your fridge or list your ingredients, and get 3 healthy recipes that fit your goal, with calories per serving."
+    },
+    "nutritionist": {
+      "title": "AI Nutritionist",
+      "text": "Ask anything about your diet and get answers based on your goal, daily target and today's meals."
+    },
+    "health": {
+      "title": "Health alerts",
+      "text": "If you have diabetes, high blood pressure or high cholesterol, meals are checked and you get a gentle warning when something doesn't suit you."
+    },
+    "disclaimer": "CaloSnap gives general guidance and is not medical advice. Always follow your doctor's instructions."
+  },
+  "pro": {
+    "badge": "CaloSnap Pro",
+    "title": "Unlock the full power of AI",
+    "subtitle": "The core features are free. Pro removes the limits and adds the AI assistants.",
+    "items": {
+      "scan": "Unlimited AI scanning and international barcodes",
+      "multi": "Several dishes or a whole table in one photo",
+      "chef": "AI Chef: healthy recipes from what's in your fridge",
+      "chat": "Personal AI Nutritionist chat",
+      "health": "Meal alerts for diabetes, blood pressure and cholesterol",
+      "feast": "Feast and cheat-day balancing mode"
+    },
+    "trial": "3-day free trial",
+    "note": "Weekly, monthly and yearly plans. Prices are shown in the app in your local currency. Cancel anytime in your App Store or Google Play settings."
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "accuracy": {
+      "q": "How accurate is the calorie estimate?",
+      "a": "For most everyday meals the AI is close to real values, but it's still an estimate. You can always correct the food or the portion weight before saving."
+    },
+    "foods": {
+      "q": "Which foods does it recognise?",
+      "a": "Home-cooked dishes, national cuisine, fast food, drinks and packaged products. For packaged foods a barcode or label scan is the most precise."
+    },
+    "privacy": {
+      "q": "Is my data safe?",
+      "a": "Your data is used only to run the app. We don't show ads or sell data, and you can delete your account and all data from your profile at any time."
+    },
+    "free": {
+      "q": "Is CaloSnap free?",
+      "a": "Yes. The diary, goals, water and weight tracking and daily AI scans are free. CaloSnap Pro adds unlimited scanning and the AI assistants."
+    },
+    "cancel": {
+      "q": "How do I cancel my subscription?",
+      "a": "Subscriptions are managed by the App Store or Google Play. Open your account's subscription settings on your phone and cancel there."
+    },
+    "languages": {
+      "q": "Which languages are supported?",
+      "a": "Uzbek, Russian, English, Turkish, Kazakh, Korean, Spanish, German and French."
+    }
+  },
+  "cta": {
+    "title": "Start eating smarter today",
+    "subtitle": "Download CaloSnap and log your first meal in seconds."
+  },
+  "footer": {
+    "tagline": "AI calorie counter from a photo.",
+    "product": "Product",
+    "legal": "Legal",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Use",
+    "deleteAccount": "Delete account",
+    "contact": "Contact",
+    "telegram": "Message us on Telegram",
+    "rights": "All rights reserved."
+  },
+  "legal": {
+    "back": "Back to home"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "The page you're looking for doesn't exist or has moved."
+  }
+}

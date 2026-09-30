@@ -46,10 +46,15 @@ TASK INSTRUCTIONS:
      "rejectionReason": "Rasm xira yoki taom aniqlanmadi. Iltimos, kamerani taomga yaqinlashtirib, yorug‘ joyda qayta suratga oling.",
      "items": []
    }
-3. If FOOD/BEVERAGE/BREAD is detected:
-   - Identify every distinct item on the plate/table.
-   - Provide clean titles in Uzbek latin (nameUz), Russian (nameRu), and English (nameEn).
-   - Estimate realistic weight in GRAMS (e.g. slice of bread = 45g, whole bread = 320g, glass of water = 250g, plate of food = 350-450g).
+3. MULTI-DISH & FULL TABLE (DASTURXON) PERCEPTION:
+   - If the image contains a dining table, dasturxon, buffet, banquet, or multiple dishes/plates/bowls/glasses:
+     * You MUST detect and extract EVERY distinct food and beverage item as a separate item in the 'items' array.
+     * DO NOT combine multiple items into one generic name like 'Dinner' or 'Set'. Separate them (e.g., Item 1: Osh / Palov, Item 2: Achichuk salat, Item 3: Tandir non, Item 4: Ko'k choy, Item 5: Somsa).
+     * Estimate realistic individual portion weight for each item (e.g. Osh plate = ~350-400g, Salad bowl = ~120-150g, Bread slice = ~45-50g, Tea cup/bowl = ~200-250g).
+   - If it is a single plate with multiple components (e.g. Steak + Mashed potato + Broccoli):
+     * If served as a unified dish, identify the primary dish (e.g. Steyk kartoshka pyure bilan) or split into major parts if clearly distinct.
+4. NUTRITION & TITLES:
+   - Provide clean, polite titles in Uzbek latin (nameUz), Russian (nameRu), and English (nameEn).
    - Provide accurate nutritional values per 100g:
      * caloriesPer100g (kcal) — must match formula: (protein*4 + carbs*4 + fat*9)
      * proteinPer100g (g)

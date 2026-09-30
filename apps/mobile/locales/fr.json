@@ -1,0 +1,5 @@
+{
+  "NSCameraUsageDescription": "CaloSnap utilise l’appareil photo pour photographier vos repas et scanner les codes-barres et étiquettes nutritionnelles.",
+  "NSPhotoLibraryUsageDescription": "CaloSnap vous permet de choisir dans votre photothèque une photo de repas, une étiquette nutritionnelle ou une photo de profil.",
+  "NSFaceIDUsageDescription": "CaloSnap utilise Face ID pour déverrouiller l’app en toute sécurité."
+}

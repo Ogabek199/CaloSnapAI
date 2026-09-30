@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsPositive } from 'class-validator';
+import { IsNumber, IsPositive, Max } from 'class-validator';
 
 export class UpdateMealItemDto {
   @ApiProperty({
@@ -9,5 +9,6 @@ export class UpdateMealItemDto {
   })
   @IsNumber()
   @IsPositive({ message: 'Vazn musbat son bo‘lishi kerak' })
+  @Max(5000)
   weightGrams: number;
 }

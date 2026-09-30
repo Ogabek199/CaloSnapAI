@@ -1,0 +1,5 @@
+{
+  "NSCameraUsageDescription": "CaloSnap тағамды суретке түсіру, штрих-код пен заттаңбаларды сканерлеу үшін камераңызды пайдаланады.",
+  "NSPhotoLibraryUsageDescription": "CaloSnap галереядан тағам суретін, өнім заттаңбасын немесе профиль суретін таңдауға мүмкіндік береді.",
+  "NSFaceIDUsageDescription": "CaloSnap қолданбаға қауіпсіз кіру үшін Face ID пайдаланады."
+}

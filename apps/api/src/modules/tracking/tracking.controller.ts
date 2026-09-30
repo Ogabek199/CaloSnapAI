@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { TrackingService } from './tracking.service.js';
+import { TrackingService } from './tracking.service';
+import { AddWaterDto, AddWeightDto } from './dto/tracking.dto';
 
 @ApiTags('Tracking')
 @ApiBearerAuth('JWT-auth')
@@ -12,7 +13,7 @@ export class TrackingController {
 
   @Post('weight')
   @ApiOperation({ summary: 'Vazn yozuvi qo‘shish' })
-  async addWeight(@Request() req: any, @Body() body: { weightKg: number; loggedAt?: string }) {
+  async addWeight(@Request() req: any, @Body() body: AddWeightDto) {
     return this.trackingService.addWeight(req.user.id, body.weightKg, body.loggedAt);
   }
 
@@ -25,10 +26,8 @@ export class TrackingController {
 
   @Post('water')
   @ApiOperation({ summary: 'Suv qo‘shish (ml)' })
-  async addWater(@Request() req: any, @Body() body: { amountMl?: number }) {
-    const amount =
-      body.amountMl === undefined || body.amountMl === null ? 250 : Number(body.amountMl);
-    return this.trackingService.addWater(req.user.id, amount);
+  async addWater(@Request() req: any, @Body() body: AddWaterDto) {
+    return this.trackingService.addWater(req.user.id, body.amountMl ?? 250);
   }
 
   @Get('water/today')

@@ -1,15 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   View,
   Text,
   StyleSheet,
   Modal,
   FlatList,
   Pressable,
+  ScrollView,
   TextInput,
   Linking,
 } from "react-native";
-import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import {
   User,
@@ -19,15 +20,14 @@ import {
   ChevronDown,
   Search,
   X,
-  Leaf,
   Sun,
   Moon,
 } from "lucide-react-native";
 import { useAppStore, usePalette, useStrings } from "../src/store/useAppStore";
 import { useDiaryStore } from "../src/store/useDiaryStore";
 import { useToastStore } from "../src/store/useToastStore";
-import { Language } from "../src/shared/i18n/translations";
-import { ApiClient } from "../src/shared/api/api-client";
+import { LANGUAGES } from "../src/shared/i18n/languages";
+import { ApiClient, ApiError } from "../src/shared/api/api-client";
 import { Screen } from "../src/shared/ui/Screen";
 import { Button } from "../src/shared/ui/Button";
 import { TextField } from "../src/shared/ui/TextField";
@@ -43,15 +43,10 @@ import {
   formatPhoneDisplay,
   toE164,
 } from "../src/features/auth/countries";
+import { countryName } from "../src/features/auth/country-names";
 
 /** Telegram support username for password reset (no OTP). */
 const SUPPORT_TELEGRAM = "otaxonov_o17";
-
-const AUTH_LANGS: { key: Language; flag: string; label: string }[] = [
-  { key: "uz", flag: "🇺🇿", label: "O‘zbekcha" },
-  { key: "ru", flag: "🇷🇺", label: "Русский" },
-  { key: "en", flag: "🇬🇧", label: "English" },
-];
 
 /**
  * Auth collects ONLY account credentials:
@@ -61,11 +56,15 @@ const AUTH_LANGS: { key: Language; flag: string; label: string }[] = [
  * Body stats / goals live in onboarding after register.
  */
 export default function AuthScreen() {
-  const router = useRouter();
-  const { themeMode, language, setLanguage, setThemeMode, login, setOnboardingCompleted } =
-    useAppStore();
-  const { setCalorieGoal, refreshDiary } = useDiaryStore();
-  const { showToast } = useToastStore();
+  const themeMode = useAppStore((s) => s.themeMode);
+  const language = useAppStore((s) => s.language);
+  const setLanguage = useAppStore((s) => s.setLanguage);
+  const setThemeMode = useAppStore((s) => s.setThemeMode);
+  const login = useAppStore((s) => s.login);
+  const setOnboardingCompleted = useAppStore((s) => s.setOnboardingCompleted);
+  const setCalorieGoal = useDiaryStore((s) => s.setCalorieGoal);
+  const refreshDiary = useDiaryStore((s) => s.refreshDiary);
+  const showToast = useToastStore((s) => s.showToast);
   const t = usePalette();
   const strings = useStrings();
   const isDark = themeMode === "dark";
@@ -84,9 +83,19 @@ export default function AuthScreen() {
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
   const [langOpen, setLangOpen] = useState(false);
+  const submittingRef = useRef(false);
+  const logoIn = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.7)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(logoIn, { toValue: 1, duration: 450, useNativeDriver: true }),
+      Animated.spring(logoScale, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }),
+    ]).start();
+  }, [logoIn, logoScale]);
 
   const currentLang =
-    AUTH_LANGS.find((l) => l.key === language) || AUTH_LANGS[0];
+    LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 
   const isRegister = mode === "register";
 
@@ -95,8 +104,8 @@ export default function AuthScreen() {
     const fullPhone =
       digits.length >= 7 ? toE164(selectedCountry.code, digits) : "";
     const message = fullPhone
-      ? `Salom! Taom AI da parolni tiklash kerak. Telefon: ${fullPhone}`
-      : "Salom! Taom AI da parolni tiklash kerak.";
+      ? strings.supportResetMessagePhone.replace("{phone}", fullPhone)
+      : strings.supportResetMessage;
     const url = `https://t.me/${SUPPORT_TELEGRAM}?text=${encodeURIComponent(message)}`;
     try {
       const can = await Linking.canOpenURL(url);
@@ -114,8 +123,11 @@ export default function AuthScreen() {
   const switchMode = (next: "login" | "register") => {
     Haptics.selectionAsync();
     setMode(next);
+    setName("");
+    setPhone("");
     setPassword("");
     setConfirmPassword("");
+    setShowPassword(false);
   };
 
   const validate = (): string | null => {
@@ -144,6 +156,7 @@ export default function AuthScreen() {
 
   /** New accounts always go through onboarding for body stats / goals. */
   const handleSubmit = async () => {
+    if (submittingRef.current) return;
     const error = validate();
     if (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -155,6 +168,7 @@ export default function AuthScreen() {
     const fullPhone = toE164(selectedCountry.code, digits);
     const displayName = name.trim();
 
+    submittingRef.current = true;
     setLoading(true);
     try {
       const res = isRegister
@@ -165,54 +179,48 @@ export default function AuthScreen() {
         throw new Error(strings.invalidResponse);
       }
 
+      // Register seeds placeholder stats, so only the server's explicit flag means onboarding is done.
+      const profile = res.user?.profile;
+      const hasCompletedProfile = profile?.onboardingCompleted === true;
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Set before login() so the root auth gate never sees a logged-in user with a stale onboarding flag.
+      setOnboardingCompleted(hasCompletedProfile);
       login(
         res.user?.email || fullPhone,
-        res.user?.name || displayName || "Foydalanuvchi",
+        res.user?.name || displayName || strings.defaultUserName,
         res.accessToken,
         res.user?.phone || fullPhone,
-        res.user?.profile,
+        { ...(profile || {}), isPremium: !!res.user?.isPremium },
         res.user?.avatarUrl,
       );
-      applyProfile(res.user?.profile);
+      if (hasCompletedProfile) applyProfile(profile);
 
-      if (isRegister) {
-        setOnboardingCompleted(false);
-        showToast(strings.accountCreated, "success");
-        router.replace("/onboarding");
-      } else {
-        // Only skip onboarding when server already has a real profile (body stats + goal)
-        const profile = res.user?.profile;
-        const hasCompletedProfile = !!(
-          profile &&
-          typeof profile.age === "number" &&
-          typeof profile.heightCm === "number" &&
-          typeof profile.weightKg === "number" &&
-          typeof profile.dailyCalorieGoal === "number" &&
-          profile.dailyCalorieGoal > 0
-        );
-        setOnboardingCompleted(hasCompletedProfile);
-        if (hasCompletedProfile) {
-          await refreshDiary();
-          showToast(strings.welcomeBack, "success");
-          router.replace("/(tabs)");
-        } else {
-          showToast(strings.welcomeBack, "success");
-          router.replace("/onboarding");
-        }
-      }
+      // The root AuthRedirect navigates to onboarding or tabs as soon as the session is stored.
+      if (hasCompletedProfile) void refreshDiary();
+      showToast(isRegister ? strings.accountCreated : strings.welcomeBack, "success");
     } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showToast(err?.message || strings.authError, "error");
+      const code = err instanceof ApiError ? (err.data as any)?.code : undefined;
+      if (code === "USER_NOT_FOUND") {
+        showToast(strings.userNotFound, "warning");
+      } else if (code === "INVALID_PASSWORD") {
+        showToast(strings.wrongPassword, "error");
+      } else {
+        showToast(err?.message || strings.authError, "error");
+      }
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
 
+  const countryQuery = countrySearch.trim().toLowerCase();
   const filteredCountries = COUNTRIES.filter(
     (c) =>
-      c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-      c.code.includes(countrySearch),
+      countryName(c, language).toLowerCase().includes(countryQuery) ||
+      c.name.toLowerCase().includes(countryQuery) ||
+      c.code.includes(countryQuery),
   );
 
   return (
@@ -260,10 +268,12 @@ export default function AuthScreen() {
       </View>
 
       <View style={styles.brand}>
-        <View style={[styles.logo, { backgroundColor: t.primary }]}>
-          <Leaf color={t.onPrimary} size={28} strokeWidth={2} />
-        </View>
-        <Text style={[styles.title, { color: t.text }]}>Taom AI</Text>
+        <Animated.Image
+          source={require("../assets/icon.png")}
+          style={[styles.logo, { opacity: logoIn, transform: [{ scale: logoScale }] }]}
+          accessibilityIgnoresInvertColors
+        />
+        <Text style={[styles.title, { color: t.text }]}>CaloSnap</Text>
         <Text style={[styles.subtitle, { color: t.textSecondary }]}>
           {isRegister ? strings.authRegisterSubtitle : strings.authLoginSubtitle}
         </Text>
@@ -348,6 +358,8 @@ export default function AuthScreen() {
               }
               placeholderTextColor={t.textMuted}
               keyboardType="phone-pad"
+              autoComplete="off"
+              importantForAutofill="no"
               value={phone}
               onChangeText={(val) =>
                 setPhone(formatPhoneDisplay(val, selectedCountry))
@@ -428,6 +440,7 @@ export default function AuthScreen() {
         animationType="slide"
         transparent
         onRequestClose={() => setResetOpen(false)}
+        statusBarTranslucent
       >
         <View
           style={{
@@ -478,13 +491,14 @@ export default function AuthScreen() {
         transparent
         animationType="slide"
         onRequestClose={() => setLangOpen(false)}
+        statusBarTranslucent
       >
         <View style={styles.backdrop}>
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={() => setLangOpen(false)}
           />
-          <View style={[styles.sheet, { backgroundColor: t.card, maxHeight: "45%" }]}>
+          <View style={[styles.sheet, { backgroundColor: t.card, maxHeight: "75%" }]}>
             <View style={styles.handle} />
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: t.text }]}>
@@ -494,14 +508,15 @@ export default function AuthScreen() {
                 <X color={t.textMuted} size={22} />
               </Pressable>
             </View>
-            {AUTH_LANGS.map((l) => {
-              const selected = language === l.key;
+            <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+            {LANGUAGES.map((l) => {
+              const selected = language === l.code;
               return (
                 <Pressable
-                  key={l.key}
+                  key={l.code}
                   onPress={() => {
                     Haptics.selectionAsync();
-                    setLanguage(l.key);
+                    setLanguage(l.code);
                     setLangOpen(false);
                   }}
                   style={[
@@ -521,6 +536,7 @@ export default function AuthScreen() {
                 </Pressable>
               );
             })}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -530,6 +546,7 @@ export default function AuthScreen() {
         transparent
         animationType="slide"
         onRequestClose={() => setCountryModalVisible(false)}
+        statusBarTranslucent
       >
         <View style={styles.backdrop}>
           <View style={[styles.sheet, { backgroundColor: t.card }]}>
@@ -580,7 +597,7 @@ export default function AuthScreen() {
                   >
                     <Text style={styles.flag}>{item.flag}</Text>
                     <Text style={[styles.countryName, { color: t.text }]}>
-                      {item.name}
+                      {countryName(item, language)}
                     </Text>
                     <Text style={{ color: t.textMuted, fontWeight: "600" }}>
                       {item.code}
@@ -633,11 +650,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xxl,
   },
   logo: {
-    width: 56,
-    height: 56,
-    borderRadius: Radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 68,
+    height: 68,
+    borderRadius: 18,
     marginBottom: Spacing.md,
   },
   title: {
@@ -709,8 +724,10 @@ const styles = StyleSheet.create({
   phoneText: {
     fontSize: FontSize.md,
     fontWeight: "500",
-    padding: 0,
+    paddingVertical: 0,
     margin: 0,
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   switchRow: {
     alignItems: "center",

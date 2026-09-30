@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { Gender, ActivityLevel, FitnessGoal } from '@prisma/client';
+import { Gender, ActivityLevel, FitnessGoal, HealthCondition } from '@prisma/client';
 
 @Injectable()
 export class GoalsService {
@@ -75,6 +75,7 @@ export class GoalsService {
         proteinGoalGrams: goals.protein,
         carbsGoalGrams: goals.carbs,
         fatGoalGrams: goals.fat,
+        onboardingCompleted: true,
       },
       create: {
         userId,
@@ -88,6 +89,7 @@ export class GoalsService {
         proteinGoalGrams: goals.protein,
         carbsGoalGrams: goals.carbs,
         fatGoalGrams: goals.fat,
+        onboardingCompleted: true,
       },
     });
 
@@ -95,5 +97,16 @@ export class GoalsService {
       profile,
       calculatedGoals: goals,
     };
+  }
+
+  async updateHealthConditions(userId: string, conditions: HealthCondition[]) {
+    const profile = await this.prisma.userProfile.findUnique({ where: { userId }, select: { id: true } });
+    if (!profile) throw new NotFoundException('Profil topilmadi');
+    const updated = await this.prisma.userProfile.update({
+      where: { userId },
+      data: { healthConditions: [...new Set(conditions)] },
+      select: { healthConditions: true },
+    });
+    return { healthConditions: updated.healthConditions };
   }
 }

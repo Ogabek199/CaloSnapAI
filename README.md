@@ -1,4 +1,4 @@
-# 🥗 Taom AI — AI Food Scanner & Nutrition Monorepo
+# CaloSnap — AI Food Scanner & Nutrition Monorepo
 
 ### 2. Bog‘liqliklarni o‘rnatish va loyihani yig‘ish (Build)
 

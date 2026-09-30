@@ -2,29 +2,31 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
 import { AlertTriangle, Minus, Plus, Check } from 'lucide-react-native';
 import { CustomModal } from '../../shared/ui/CustomModal';
-import { useAppStore } from '../../store/useAppStore';
+import { usePalette, useStrings } from '../../store/useAppStore';
 import { FontSize, Radius, Spacing } from '../../shared/theme/spacing';
 import type { useDiaryItemEditor } from './useDiaryItemEditor';
 
 type Editor = ReturnType<typeof useDiaryItemEditor>;
 
 export function DiaryItemEditorModals({ editor }: { editor: Editor }) {
-  const { theme } = useAppStore();
-  const c = theme();
+  const c = usePalette();
+  const strings = useStrings();
 
   return (
     <>
       <CustomModal
         visible={editor.deleteVisible}
         onClose={() => editor.setDeleteVisible(false)}
-        title="O‘chirish"
+        title={strings.deleteConfirmTitle}
       >
         <View style={styles.center}>
           <View style={[styles.warnIcon, { backgroundColor: c.dangerBg }]}>
             <AlertTriangle color={c.danger} size={28} />
           </View>
           <Text style={[styles.msg, { color: c.text }]}>
-            «{editor.itemToDelete?.name}» ({editor.itemToDelete?.weight}g) o‘chirilsinmi?
+            {strings.deleteConfirmMsg
+              .replace('{name}', editor.itemToDelete?.name ?? '')
+              .replace('{g}', String(editor.itemToDelete?.weight ?? ''))}
           </Text>
           <View style={styles.row}>
             <Pressable
@@ -34,7 +36,7 @@ export function DiaryItemEditorModals({ editor }: { editor: Editor }) {
                 { backgroundColor: c.cardHover, opacity: pressed ? 0.85 : 1 },
               ]}
             >
-              <Text style={[styles.btnText, { color: c.text }]}>Bekor</Text>
+              <Text style={[styles.btnText, { color: c.text }]}>{strings.cancelBtn}</Text>
             </Pressable>
             <Pressable
               onPress={editor.confirmDelete}
@@ -43,7 +45,7 @@ export function DiaryItemEditorModals({ editor }: { editor: Editor }) {
                 { backgroundColor: c.danger, opacity: pressed ? 0.85 : 1 },
               ]}
             >
-              <Text style={[styles.btnText, { color: '#fff' }]}>O‘chirish</Text>
+              <Text style={[styles.btnText, { color: '#fff' }]}>{strings.removeItem}</Text>
             </Pressable>
           </View>
         </View>
@@ -52,7 +54,7 @@ export function DiaryItemEditorModals({ editor }: { editor: Editor }) {
       <CustomModal
         visible={editor.editVisible}
         onClose={() => editor.setEditVisible(false)}
-        title="Porsiyani tahrirlash"
+        title={strings.editPortionTitle}
       >
         <Text style={[styles.editName, { color: c.text }]}>{editor.itemToEdit?.name}</Text>
 
@@ -84,8 +86,10 @@ export function DiaryItemEditorModals({ editor }: { editor: Editor }) {
           <View style={[styles.preview, { backgroundColor: c.cardHover }]}>
             <Text style={[styles.previewMain, { color: c.text }]}>{editor.preview.cal} kcal</Text>
             <Text style={[styles.previewSub, { color: c.textMuted }]}>
-              Oqsil {editor.preview.protein}g · Uglevod {editor.preview.carbs}g · Yog‘{' '}
-              {editor.preview.fat}g
+              {strings.macroLine
+                .replace('{p}', String(editor.preview.protein))
+                .replace('{c}', String(editor.preview.carbs))
+                .replace('{f}', String(editor.preview.fat))}
             </Text>
           </View>
         ) : null}
@@ -98,7 +102,7 @@ export function DiaryItemEditorModals({ editor }: { editor: Editor }) {
           ]}
         >
           <Check color="#fff" size={18} />
-          <Text style={styles.saveText}>Saqlash</Text>
+          <Text style={styles.saveText}>{strings.saveBtn}</Text>
         </Pressable>
       </CustomModal>
     </>
@@ -149,15 +153,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  weightBox: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  weightBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   weightInput: {
     fontSize: 36,
     fontWeight: '700',
     minWidth: 80,
     textAlign: 'center',
     letterSpacing: -1,
+    paddingVertical: 0,
+    includeFontPadding: false,
   },
-  unit: { fontSize: FontSize.md, fontWeight: '600' },
+  unit: { fontSize: FontSize.md, fontWeight: '600', includeFontPadding: false },
   preview: {
     borderRadius: Radius.md,
     padding: Spacing.lg,

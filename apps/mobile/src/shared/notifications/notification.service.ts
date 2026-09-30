@@ -1,25 +1,84 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import { Language } from '../i18n/translations';
+import Constants from 'expo-constants';
+import { type Language, type StringKey, translations } from '../i18n/translations';
 
-// Set notification handler so notifications display as foreground banners + sound
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+/**
+ * Android Expo Go (SDK 53+) throws when expo-notifications is loaded.
+ * Never require() the package there — it can break route modules mid-eval.
+ */
+function isAndroidExpoGo(): boolean {
+  if (Platform.OS !== 'android') return false;
+  // Standalone / dev-client builds report appOwnership === null, so null must NOT be treated as Expo Go.
+  const env = (Constants as { executionEnvironment?: string }).executionEnvironment;
+  return env === 'storeClient' || Constants.appOwnership === 'expo';
+}
+
+type NotificationsModule = {
+  setNotificationHandler: (handler: unknown) => void;
+  setNotificationChannelAsync: (id: string, opts: unknown) => Promise<unknown>;
+  getPermissionsAsync: () => Promise<unknown>;
+  requestPermissionsAsync: (opts?: unknown) => Promise<unknown>;
+  cancelAllScheduledNotificationsAsync: () => Promise<unknown>;
+  scheduleNotificationAsync: (opts: unknown) => Promise<unknown>;
+  AndroidImportance: { MAX: unknown };
+  AndroidNotificationVisibility: { PUBLIC: unknown };
+  AndroidNotificationPriority: { MAX: unknown };
+  SchedulableTriggerInputTypes: { DAILY: unknown; TIME_INTERVAL: unknown };
+};
+
+let notifications: NotificationsModule | null | undefined;
+let handlerReady = false;
+
+// Schedule/cancel both start with cancelAll, so overlapping calls must run in order.
+let opChain: Promise<unknown> = Promise.resolve();
+function serialize<T>(fn: () => Promise<T>): Promise<T> {
+  const run = opChain.then(fn, fn);
+  opChain = run.catch(() => {});
+  return run;
+}
+
+function getNotifications(): NotificationsModule | null {
+  if (isAndroidExpoGo()) return null;
+  if (notifications !== undefined) return notifications;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    notifications = require('expo-notifications') as NotificationsModule;
+    return notifications;
+  } catch (e) {
+    console.warn('[NotificationService] expo-notifications unavailable:', e);
+    notifications = null;
+    return null;
+  }
+}
+
+function ensureHandler() {
+  if (handlerReady || isAndroidExpoGo()) return;
+  const N = getNotifications();
+  if (!N) return;
+  try {
+    N.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+    handlerReady = true;
+  } catch (e) {
+    console.warn('[NotificationService] setNotificationHandler skipped:', e);
+  }
+}
 
 export interface MealReminderConfig {
   id: string;
   hour: number;
   minute: number;
   type: 'breakfast' | 'lunch' | 'dinner';
-  title: Record<Language, string>;
-  body: Record<Language, string>;
+  titleKey: StringKey;
+  bodyKey: StringKey;
 }
 
 export const MEAL_REMINDERS: MealReminderConfig[] = [
@@ -28,79 +87,64 @@ export const MEAL_REMINDERS: MealReminderConfig[] = [
     hour: 8,
     minute: 30,
     type: 'breakfast',
-    title: {
-      uz: '🍳 Nonushta vaqti bo‘ldi!',
-      ru: '🍳 Время завтрака!',
-      en: '🍳 Time for Breakfast!',
-    },
-    body: {
-      uz: 'Kuningizni to‘g‘ri kaloriya bilan boshlang. Yegan nonushtangizni skanerlashni unutmang!',
-      ru: 'Начните день с правильных калорий. Не забудьте отсканировать ваш завтрак!',
-      en: "Start your day with the right fuel. Don't forget to scan your breakfast!",
-    },
+    titleKey: 'notifBreakfastTitle',
+    bodyKey: 'notifBreakfastBody',
   },
   {
     id: 'taom-ai-lunch-reminder',
     hour: 13,
     minute: 0,
     type: 'lunch',
-    title: {
-      uz: '🍲 Mazali tushlik vaqti!',
-      ru: '🍲 Время вкусного обеда!',
-      en: '🍲 Delicious Lunch Time!',
-    },
-    body: {
-      uz: 'Bugungi kaloriya me‘yoringiz qanday ketmoqda? Tushlikni Taom AI orqali skaner qiling.',
-      ru: 'Как ваш баланс калорий на сегодня? Отсканируйте обед через Taom AI.',
-      en: 'How is your calorie target going today? Scan your lunch with Taom AI.',
-    },
+    titleKey: 'notifLunchTitle',
+    bodyKey: 'notifLunchBody',
   },
   {
     id: 'taom-ai-dinner-reminder',
     hour: 19,
     minute: 30,
     type: 'dinner',
-    title: {
-      uz: '🥗 Kechki ovqatni yedingizmi?',
-      ru: '🥗 Поужинали?',
-      en: '🥗 Had your Dinner?',
-    },
-    body: {
-      uz: 'Kunlik balansingizni to‘ldirish uchun kechki ovqatni skanerlab, kundalikka qo‘shing.',
-      ru: 'Чтобы завершить дневной баланс, отсканируйте ужин и добавьте в дневник.',
-      en: 'Complete your daily nutrition balance by scanning and logging your dinner.',
-    },
+    titleKey: 'notifDinnerTitle',
+    bodyKey: 'notifDinnerBody',
   },
 ];
 
+const stringsFor = (lang: Language) => translations[lang] ?? translations.en;
+
 export const NotificationService = {
-  /**
-   * Request notification permissions & set Android Channel with MAX importance
-   */
-  async requestPermissions(): Promise<boolean> {
+  isSupported(): boolean {
+    return !isAndroidExpoGo() && getNotifications() != null;
+  },
+
+  async requestPermissions(lang: Language = 'en'): Promise<boolean> {
+    if (isAndroidExpoGo()) return false;
+    ensureHandler();
+    const N = getNotifications();
+    if (!N) {
+      console.warn('[NotificationService] Skipped — notifications unavailable in this build.');
+      return false;
+    }
+
     try {
-      // 1. Create Android Notification Channel first (essential for Android 8+)
       if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('taom-meal-reminders', {
-          name: 'Taom AI Ovqatlanish Eslatmalari',
-          description: 'Nonushta, tushlik va kechki ovqat uchun kunlik eslatmalar',
-          importance: Notifications.AndroidImportance.MAX,
+        await N.setNotificationChannelAsync('taom-meal-reminders', {
+          name: stringsFor(lang).notifChannelName,
+          description: stringsFor(lang).notifChannelDesc,
+          importance: N.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#10B981',
           sound: 'default',
           enableVibrate: true,
           showBadge: true,
-          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+          lockscreenVisibility: N.AndroidNotificationVisibility.PUBLIC,
           bypassDnd: false,
         });
       }
 
-      // 2. Check and request permissions
-      const settings = await Notifications.getPermissionsAsync();
+      const settings = await N.getPermissionsAsync();
       let granted = (settings as any).granted || (settings as any).status === 'granted';
 
       if (!granted) {
-        const req = await Notifications.requestPermissionsAsync({
+        const req = await N.requestPermissionsAsync({
           ios: {
             allowAlert: true,
             allowBadge: true,
@@ -122,89 +166,89 @@ export const NotificationService = {
     }
   },
 
-  /**
-   * Schedule all 3 daily offline meal reminders at exact local hours (08:30, 13:00, 19:30)
-   */
-  async scheduleMealReminders(lang: Language = 'uz'): Promise<boolean> {
-    try {
-      const hasPermission = await this.requestPermissions();
-      if (!hasPermission) return false;
+  async scheduleMealReminders(lang: Language = 'en'): Promise<boolean> {
+    if (isAndroidExpoGo()) return false;
+    ensureHandler();
+    const N = getNotifications();
+    if (!N) return false;
 
-      // Cancel old scheduled notifications first
-      await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+    return serialize(async () => {
+      try {
+        const hasPermission = await this.requestPermissions(lang);
+        if (!hasPermission) return false;
 
-      for (const meal of MEAL_REMINDERS) {
-        await Notifications.scheduleNotificationAsync({
-          identifier: meal.id,
-          content: {
-            title: meal.title[lang] || meal.title.uz,
-            body: meal.body[lang] || meal.body.uz,
-            data: { mealType: meal.type },
-            sound: 'default',
-            priority: Notifications.AndroidNotificationPriority.MAX,
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DAILY,
-            hour: meal.hour,
-            minute: meal.minute,
-            channelId: 'taom-meal-reminders',
-          } as any,
-        });
+        const t = stringsFor(lang);
+        await N.cancelAllScheduledNotificationsAsync().catch(() => {});
+
+        for (const meal of MEAL_REMINDERS) {
+          await N.scheduleNotificationAsync({
+            identifier: meal.id,
+            content: {
+              title: t[meal.titleKey],
+              body: t[meal.bodyKey],
+              data: { mealType: meal.type },
+              sound: 'default',
+              priority: N.AndroidNotificationPriority.MAX,
+            },
+            trigger: {
+              type: N.SchedulableTriggerInputTypes.DAILY,
+              hour: meal.hour,
+              minute: meal.minute,
+              channelId: 'taom-meal-reminders',
+            } as any,
+          });
+        }
+
+        if (__DEV__) console.log('[NotificationService] Scheduled daily meal reminders:', lang);
+        return true;
+      } catch (error) {
+        console.warn('[NotificationService] Scheduling warning:', error);
+        return false;
       }
-
-      console.log('[NotificationService] Successfully scheduled 3 daily meal reminders in language:', lang);
-      return true;
-    } catch (error) {
-      console.warn('[NotificationService] Scheduling warning:', error);
-      return false;
-    }
+    });
   },
 
-  /**
-   * Cancel all meal reminders
-   */
   async cancelMealReminders(): Promise<void> {
-    try {
-      await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
-      console.log('[NotificationService] All meal reminders cancelled');
-    } catch (error) {
-      console.warn('[NotificationService] Cancel warning:', error);
-    }
+    if (isAndroidExpoGo()) return;
+    const N = getNotifications();
+    if (!N) return;
+
+    return serialize(async () => {
+      try {
+        await N.cancelAllScheduledNotificationsAsync().catch(() => {});
+        if (__DEV__) console.log('[NotificationService] All meal reminders cancelled');
+      } catch (error) {
+        console.warn('[NotificationService] Cancel warning:', error);
+      }
+    });
   },
 
-  /**
-   * Test immediate notification (triggers in 1 second with banner and sound)
-   */
-  async triggerInstantTestNotification(lang: Language = 'uz'): Promise<boolean> {
+  async triggerInstantTestNotification(lang: Language = 'en'): Promise<boolean> {
+    if (isAndroidExpoGo()) return false;
+    ensureHandler();
+    const N = getNotifications();
+    if (!N) return false;
+
     try {
-      const hasPermission = await this.requestPermissions();
+      const hasPermission = await this.requestPermissions(lang);
       if (!hasPermission) return false;
 
-      const titles: Record<Language, string> = {
-        uz: 'Taom AI Eslatmasi faol! 🔔',
-        ru: 'Напоминания Taom AI активны! 🔔',
-        en: 'Taom AI Reminders Active! 🔔',
-      };
-      const bodies: Record<Language, string> = {
-        uz: 'Har kuni 08:30 (Nonushta), 13:00 (Tushlik) va 19:30 (Kechki ovqat)da eslatmalar boradi.',
-        ru: 'Ежедневно в 08:30 (Завтрак), 13:00 (Обед) и 19:30 (Ужин) будут приходить напоминания.',
-        en: 'You will receive reminders daily at 08:30 (Breakfast), 13:00 (Lunch), and 19:30 (Dinner).',
-      };
-
-      await Notifications.scheduleNotificationAsync({
+      const t = stringsFor(lang);
+      await N.scheduleNotificationAsync({
         content: {
-          title: titles[lang] || titles.uz,
-          body: bodies[lang] || bodies.uz,
+          title: t.notifTestTitle,
+          body: t.notifTestBody,
           sound: 'default',
-          priority: Notifications.AndroidNotificationPriority.MAX,
+          priority: N.AndroidNotificationPriority.MAX,
         },
         trigger: {
+          type: N.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 1,
           channelId: 'taom-meal-reminders',
         } as any,
       });
 
-      console.log('[NotificationService] Test notification scheduled successfully');
+      if (__DEV__) console.log('[NotificationService] Test notification scheduled');
       return true;
     } catch (error) {
       console.warn('[NotificationService] Test notification error:', error);
